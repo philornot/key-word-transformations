@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "key-word-transformations",
+      "name": "keyword-transformations",
       "dependencies": {
         "better-sqlite3": "^12.6.2",
         "nanoid": "^5.0.7",

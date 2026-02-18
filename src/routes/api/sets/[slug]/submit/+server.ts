@@ -3,6 +3,19 @@ import {error, json} from '@sveltejs/kit';
 import {db} from '$lib/server/db.js';
 import {nanoid} from 'nanoid';
 
+/** Row type for the set lookup query. */
+type SetRow = { id: number };
+
+/** Row type for the questions lookup query. */
+type QRow = { id: number; correct_answer: string; keyword: string };
+
+/**
+ * Normalizes a user-supplied answer string for comparison.
+ * Lowercases, trims, and collapses internal whitespace.
+ *
+ * @param s - Raw answer string.
+ * @returns Normalised string.
+ */
 function normalise(s: string): string {
     return s.toLowerCase().trim().replace(/\s+/g, ' ');
 }
@@ -10,7 +23,9 @@ function normalise(s: string): string {
 export const POST: RequestHandler = async ({request, params}) => {
     const {slug} = params;
 
-    const set = db.prepare<{ id: number }, [string]>('SELECT id FROM sets WHERE slug = ?').get(slug!);
+    // better-sqlite3's prepare<T> takes a single generic for the *result* row type.
+    // Bind parameters are passed positionally to .get() / .all() / .run().
+    const set = db.prepare('SELECT id FROM sets WHERE slug = ?').get(slug!) as SetRow | undefined;
 
     if (!set) throw error(404, 'Set not found.');
 
@@ -21,10 +36,13 @@ export const POST: RequestHandler = async ({request, params}) => {
         throw error(400, 'Invalid JSON.');
     }
 
-    if (!Array.isArray(body.answers) || body.answers.length === 0) throw error(400, 'answers array required.');
+    if (!Array.isArray(body.answers) || body.answers.length === 0) {
+        throw error(400, 'answers array required.');
+    }
 
-    type QRow = { id: number; correct_answer: string; keyword: string };
-    const dbQuestions = db.prepare('SELECT id, correct_answer, keyword FROM questions WHERE set_id = ?').all(set.id) as QRow[];
+    const dbQuestions = db
+        .prepare('SELECT id, correct_answer, keyword FROM questions WHERE set_id = ?')
+        .all(set.id) as QRow[];
 
     const qMap = new Map<number, QRow>(dbQuestions.map((q) => [q.id, q]));
 
@@ -47,8 +65,11 @@ export const POST: RequestHandler = async ({request, params}) => {
     const attemptSlug = nanoid(10);
 
     db.transaction(() => {
-        const r = db.prepare('INSERT INTO attempts (set_id, slug, score, total) VALUES (?, ?, ?, ?)').run(set.id, attemptSlug, score, total);
+        const r = db
+            .prepare('INSERT INTO attempts (set_id, slug, score, total) VALUES (?, ?, ?, ?)')
+            .run(set.id, attemptSlug, score, total);
         const attemptId = r.lastInsertRowid as number;
+
         for (const g of graded) {
             db.prepare('INSERT INTO answers (attempt_id, question_id, given, is_correct) VALUES (?, ?, ?, ?)').run(attemptId, g.questionId, g.given, g.isCorrect ? 1 : 0);
         }
