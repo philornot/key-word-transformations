@@ -11,7 +11,7 @@ export const locale = $state<{ lang: 'pl' | 'en' }>({lang: 'pl'});
 
 const pl = {
     nav: {
-        home: 'Keyword Transformations', scan: 'Zeskanuj zadania', manual: 'Utwórz zestaw',
+        home: 'Key word transformations', scan: 'Zeskanuj zadania', manual: 'Utwórz zestaw',
     }, home: {
         title: 'Zamień kartkę z ćwiczeniami w interaktywny test',
         subtitle: 'Wgraj zdjęcie lub PDF kartki, a system automatycznie wykryje transformacje słów kluczowych. Popraw wynik i udostępnij link.',
@@ -94,7 +94,7 @@ const pl = {
 
 const en: typeof pl = {
     nav: {
-        home: 'Keyword Transformations', scan: 'Scan worksheet', manual: 'Create set',
+        home: 'Key word transformations', scan: 'Scan worksheet', manual: 'Create set',
     }, home: {
         title: 'Turn a paper worksheet into an interactive test',
         subtitle: 'Upload a photo or PDF of your worksheet and the app auto-detects key word transformation exercises. Review, publish, share.',

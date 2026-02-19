@@ -93,7 +93,7 @@
     }
 </script>
 
-<svelte:head><title>{t('scan.title')} — Keyword Transformations</title></svelte:head>
+<svelte:head><title>{t('scan.title')} — Key word transformations</title></svelte:head>
 
 <div class="scan-page">
     <h1>{t('scan.title')}</h1>

@@ -126,7 +126,7 @@
     }
 </script>
 
-<svelte:head><title>{t('review.title')} — Keyword Transformations</title></svelte:head>
+<svelte:head><title>{t('review.title')} — Key word transformations</title></svelte:head>
 
 <div class="review-page">
     <div class="top-bar">

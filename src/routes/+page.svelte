@@ -78,7 +78,7 @@
     }
 </script>
 
-<svelte:head><title>{t('manual.title')} — Keyword Transformations</title></svelte:head>
+<svelte:head><title>{t('manual.title')} — Key word transformations</title></svelte:head>
 
 <div class="page">
     <div class="top-bar">

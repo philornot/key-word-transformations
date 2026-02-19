@@ -70,7 +70,7 @@
   }
 </script>
 
-<svelte:head><title>{data.set.title} — Keyword Transformations</title></svelte:head>
+<svelte:head><title>{data.set.title} — Key word transformations</title></svelte:head>
 
 <div class="set-page">
   <div class="set-header">

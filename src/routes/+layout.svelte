@@ -32,7 +32,7 @@
     </main>
 
     <footer class="footer">
-        <p>Keyword Transformations</p>
+        <p>Key word transformations</p>
     </footer>
 </div>
 
