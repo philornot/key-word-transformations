@@ -1,203 +1,265 @@
 <script lang="ts">
-    import {goto} from '$app/navigation';
     import {t} from '$lib/i18n.svelte.js';
-    import KwtQuestionEditor from '$lib/components/KwtQuestionEditor.svelte';
-    import type {ParsedKWTQuestion} from '$lib/types.js';
-    import {CircleNotch, Plus, RocketLaunch} from 'phosphor-svelte';
-
-    interface DraftQuestion extends ParsedKWTQuestion {
-        _key: number;
-    }
-
-    const GAP = '______';
-    let nextKey = 0;
-    let title = $state('');
-    let questions = $state<DraftQuestion[]>([]);
-    let isPublishing = $state(false);
-    let errorMessage = $state('');
-
-    /** Creates a blank KWT exercise and appends it to the list. */
-    function addQuestion() {
-        questions.push({
-            _key: nextKey++,
-            sentence1: '', sentence2WithGap: '',
-            keyword: '', correctAnswer: null, maxWords: 5,
-        });
-    }
-
-    /**
-     * Returns a validation error for a question, or null if valid.
-     * @param q - The draft question to validate.
-     * @returns Error message string or null.
-     */
-    function questionError(q: DraftQuestion): string | null {
-        if (!q.sentence1.trim()) return t('review.errSentence1');
-        if (!q.sentence2WithGap.includes(GAP)) return t('review.errSentence2');
-        if (!q.keyword.trim()) return t('review.errKeyword');
-        if (!q.correctAnswer?.trim()) return t('review.errAnswer');
-        return null;
-    }
-
-    const isValid = $derived(
-        title.trim().length > 0 &&
-        questions.length > 0 &&
-        questions.every((q) => questionError(q) === null)
-    );
-
-    /** Publishes the set and redirects to the live URL. */
-    async function publish() {
-        if (!isValid) return;
-        isPublishing = true;
-        errorMessage = '';
-        try {
-            const res = await fetch('/api/sets', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    title: title.trim(),
-                    questions: questions.map((q) => ({
-                        sentence1: q.sentence1.trim(),
-                        sentence2WithGap: q.sentence2WithGap.trim(),
-                        keyword: q.keyword.trim(),
-                        correctAnswer: q.correctAnswer!.trim(),
-                        maxWords: q.maxWords,
-                    })),
-                }),
-            });
-            if (!res.ok) {
-                const {error} = await res.json();
-                throw new Error(error ?? 'Failed.');
-            }
-            const {slug} = await res.json();
-            goto(`/set/${slug}`);
-        } catch (err) {
-            errorMessage = err instanceof Error ? err.message : 'Unknown error.';
-        } finally {
-            isPublishing = false;
-        }
-    }
+    import {Camera, MagnifyingGlass, PencilSimple, RocketLaunch, Upload} from 'phosphor-svelte';
 </script>
 
-<svelte:head><title>{t('manual.title')} — Key word transformations</title></svelte:head>
+<svelte:head>
+    <title>Key word transformations</title>
+</svelte:head>
 
-<div class="page">
-    <div class="top-bar">
-        <div>
-            <h1>{t('manual.title')}</h1>
-            <p class="subtitle">{t('manual.subtitle')}</p>
+<div class="home">
+    <!-- Hero -->
+    <section class="hero">
+        <h1 class="hero-title">{t('home.title')}</h1>
+        <p class="hero-sub">{t('home.subtitle')}</p>
+
+        <div class="cta-row">
+            <a href="/create/scan" class="cta-card cta-primary">
+                <Camera size={28} weight="duotone"/>
+                <div>
+                    <strong>{t('home.scanTitle')}</strong>
+                    <span>{t('home.scanDesc')}</span>
+                </div>
+            </a>
+            <a href="/create/manual" class="cta-card cta-ghost">
+                <PencilSimple size={28} weight="duotone"/>
+                <div>
+                    <strong>{t('home.manualTitle')}</strong>
+                    <span>{t('home.manualDesc')}</span>
+                </div>
+            </a>
         </div>
-        <button class="btn-primary pub-btn" disabled={!isValid || isPublishing} onclick={publish}>
-            {#if isPublishing}
-                <CircleNotch size={18} weight="bold" class="spin"/> {t('manual.publishing')}
-            {:else}
-                <RocketLaunch size={18} weight="regular"/> {t('manual.publish')}
-            {/if}
-        </button>
-    </div>
+    </section>
 
-    <div class="title-row">
-        <label class="field-label" for="set-title">{t('manual.setTitle')}</label>
-        <input
-                id="set-title"
-                class="text-input"
-                type="text"
-                bind:value={title}
-                placeholder={t('manual.setTitlePlaceholder')}
-        />
-    </div>
-
-    {#if errorMessage}
-        <p class="error-banner" role="alert">{errorMessage}</p>
-    {/if}
-
-    {#if questions.length === 0}
-        <div class="empty-state card">{t('manual.empty')}</div>
-    {:else}
-        <div class="questions">
-            {#each questions as q, i (q._key)}
-                <KwtQuestionEditor
-                        bind:question={questions[i]}
-                        index={i}
-                        error={questionError(q)}
-                        onRemove={() => questions.splice(i, 1)}
-                />
-            {/each}
+    <!-- How it works -->
+    <section class="how">
+        <h2 class="how-title">{t('home.howItWorks')}</h2>
+        <div class="steps">
+            <div class="step card">
+                <div class="step-icon">
+                    <Upload size={24} weight="duotone"/>
+                </div>
+                <div class="step-num">1</div>
+                <strong>{t('home.step1')}</strong>
+                <p>{t('home.step1desc')}</p>
+            </div>
+            <div class="step-arrow">→</div>
+            <div class="step card">
+                <div class="step-icon">
+                    <MagnifyingGlass size={24} weight="duotone"/>
+                </div>
+                <div class="step-num">2</div>
+                <strong>{t('home.step2')}</strong>
+                <p>{t('home.step2desc')}</p>
+            </div>
+            <div class="step-arrow">→</div>
+            <div class="step card">
+                <div class="step-icon">
+                    <RocketLaunch size={24} weight="duotone"/>
+                </div>
+                <div class="step-num">3</div>
+                <strong>{t('home.step3')}</strong>
+                <p>{t('home.step3desc')}</p>
+            </div>
         </div>
-    {/if}
-
-    <button class="btn-ghost add-btn" onclick={addQuestion}>
-        <Plus size={16} weight="bold"/> {t('manual.addQuestion')}
-    </button>
+    </section>
 </div>
 
 <style>
-    .page {
+    .home {
         display: flex;
         flex-direction: column;
-        gap: var(--space-5);
+        gap: var(--space-12);
     }
 
-    .top-bar {
+    /* ── Hero ─────────────────────────────────────────────────────────── */
+    .hero {
+        text-align: center;
         display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        flex-wrap: wrap;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--space-5);
+        padding: var(--space-8) 0;
+    }
+
+    .hero-title {
+        font-size: var(--font-size-hero);
+        font-weight: var(--font-weight-black);
+        line-height: var(--line-height-tight);
+        letter-spacing: var(--letter-spacing-tight);
+        color: var(--color-text);
+        max-width: 700px;
+    }
+
+    .hero-sub {
+        font-size: var(--font-size-lg);
+        color: var(--color-text-muted);
+        max-width: 560px;
+        line-height: var(--line-height-base);
+    }
+
+    /* ── CTA cards ────────────────────────────────────────────────────── */
+    .cta-row {
+        display: flex;
         gap: var(--space-4);
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+        max-width: 620px;
+        margin-top: var(--space-3);
     }
 
-    h1 {
-        font-size: var(--font-size-3xl);
-        font-weight: var(--font-weight-extrabold);
-    }
-
-    .subtitle {
-        color: var(--color-text-faint);
-        font-size: var(--font-size-sm);
-        margin-top: var(--space-1);
-    }
-
-    .pub-btn {
+    .cta-card {
+        flex: 1;
+        min-width: 240px;
         display: flex;
         align-items: center;
-        gap: var(--space-2);
-        padding: var(--space-3) var(--space-6);
-        font-weight: var(--font-weight-semibold);
-        flex-shrink: 0;
+        gap: var(--space-4);
+        padding: var(--space-5) var(--space-6);
+        border-radius: var(--radius-xl);
+        text-decoration: none;
+        transition: transform var(--transition-base), box-shadow var(--transition-base);
     }
 
-    .title-row {
+    .cta-card:hover {
+        transform: translateY(-2px);
+        text-decoration: none;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .cta-primary {
+        background: var(--color-primary);
+        color: var(--color-surface);
+        box-shadow: var(--shadow-md);
+    }
+
+    .cta-ghost {
+        background: var(--color-surface);
+        color: var(--color-text);
+        border: 2px solid var(--color-border);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .cta-card div {
         display: flex;
         flex-direction: column;
         gap: var(--space-1);
+        text-align: left;
     }
 
-    .empty-state {
-        text-align: center;
-        color: var(--color-text-faint);
-        padding: var(--space-8);
+    .cta-primary strong {
+        color: var(--color-surface);
+        font-size: var(--font-size-base);
     }
 
-    .questions {
+    .cta-primary span {
+        color: rgba(255, 255, 255, 0.78);
+        font-size: var(--font-size-sm);
+    }
+
+    .cta-ghost strong {
+        color: var(--color-text);
+        font-size: var(--font-size-base);
+    }
+
+    .cta-ghost span {
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+    }
+
+    /* ── How it works ─────────────────────────────────────────────────── */
+    .how {
         display: flex;
         flex-direction: column;
-        gap: var(--space-4);
+        gap: var(--space-6);
     }
 
-    .add-btn {
+    .how-title {
+        font-size: var(--font-size-2xl);
+        font-weight: var(--font-weight-extrabold);
+        text-align: center;
+    }
+
+    .steps {
         display: flex;
         align-items: center;
+        gap: var(--space-3);
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .step {
+        flex: 1;
+        min-width: 180px;
+        max-width: 220px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
         gap: var(--space-2);
-        align-self: flex-start;
-        padding: var(--space-2) var(--space-5);
+        padding: var(--space-6) var(--space-5);
+        position: relative;
     }
 
-    :global(.spin) {
-        animation: spin 0.7s linear infinite;
+    .step-icon {
+        color: var(--color-primary);
     }
 
-    @keyframes spin {
-        to {
-            transform: rotate(360deg);
+    .step-num {
+        position: absolute;
+        top: var(--space-3);
+        right: var(--space-3);
+        background: var(--color-primary-muted);
+        color: var(--color-primary);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-black);
+        width: 20px;
+        height: 20px;
+        border-radius: var(--radius-full);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .step strong {
+        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-bold);
+    }
+
+    .step p {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-muted);
+        line-height: var(--line-height-snug);
+    }
+
+    .step-arrow {
+        font-size: var(--font-size-xl);
+        color: var(--color-neutral-400);
+        flex-shrink: 0;
+    }
+
+    @media (max-width: 600px) {
+        .hero-title {
+            font-size: var(--font-size-3xl);
+        }
+
+        .step-arrow {
+            transform: rotate(90deg);
+        }
+
+        .steps {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .step {
+            max-width: 100%;
+            flex-direction: row;
+            text-align: left;
+        }
+
+        .step-icon {
+            flex-shrink: 0;
         }
     }
 </style>

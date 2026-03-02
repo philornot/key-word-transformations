@@ -25,6 +25,7 @@ const pl = {
         step2desc: 'Popraw automatycznie wykryte pytania i uzupełnij odpowiedzi.',
         step3: 'Udostępnij',
         step3desc: 'Opublikuj i wyślij link — każdy może rozwiązać test w przeglądarce.',
+        howItWorks: 'Jak to działa',
     }, scan: {
         title: 'Zeskanuj kartkę',
         subtitle: 'Obsługiwane formaty: JPEG, PNG, WEBP, PDF — maks. 20 MB',
@@ -47,7 +48,7 @@ const pl = {
         sentence1: 'Zdanie oryginalne',
         sentence1ph: 'Wpisz pełne zdanie…',
         sentence2: 'Zdanie z luką (użyj ______ jako luki)',
-        sentence2ph: 'np. It wasn\'t until Monday ______ the news.',
+        sentence2ph: "np. It wasn't until Monday ______ the news.",
         keyword: 'Keyword',
         keywordph: 'np. UNTIL',
         answer: 'Poprawna odpowiedź',
@@ -73,6 +74,7 @@ const pl = {
         submitting: 'Sprawdzanie…',
         unanswered: 'Pozostało bez odpowiedzi: {n}',
         keyword: 'Keyword:',
+        keywordRequired: 'wymagany w odpowiedzi',
         maxWords: 'Maks. {n} wyrazów',
         gapPlaceholder: 'wpisz odpowiedź…',
         sentence2label: 'Uzupełnij:',
@@ -80,6 +82,7 @@ const pl = {
         title: 'Wyniki — {title}',
         breakdown: 'Szczegóły odpowiedzi',
         back: 'Powrót do strony głównej',
+        retryTest: 'Rozwiąż ponownie',
         perfect: 'Idealny wynik!',
         great: 'Świetnie!',
         good: 'Niezły wynik — ćwicz dalej!',
@@ -108,6 +111,7 @@ const en: typeof pl = {
         step2desc: 'Correct auto-detected questions and fill in the correct answers.',
         step3: 'Share',
         step3desc: 'Publish and send the link — anyone can take the test in their browser.',
+        howItWorks: 'How it works',
     }, scan: {
         title: 'Scan worksheet',
         subtitle: 'Supported formats: JPEG, PNG, WEBP, PDF — max 20 MB',
@@ -156,6 +160,7 @@ const en: typeof pl = {
         submitting: 'Checking…',
         unanswered: 'Unanswered: {n}',
         keyword: 'Keyword:',
+        keywordRequired: 'required in your answer',
         maxWords: 'Max {n} words',
         gapPlaceholder: 'type your answer…',
         sentence2label: 'Complete:',
@@ -163,6 +168,7 @@ const en: typeof pl = {
         title: 'Results — {title}',
         breakdown: 'Answer breakdown',
         back: 'Back to home',
+        retryTest: 'Try again',
         perfect: 'Perfect score!',
         great: 'Great work!',
         good: 'Good effort — keep practising!',
@@ -199,7 +205,6 @@ export function t(key: string, vars?: Record<string, string | number>): string {
         }
         node = (node as Record<string, unknown>)[part];
     }
-    // Fallback to Polish if key not found in selected language.
     if (typeof node !== 'string') {
         let fallback: unknown = translations.pl as never;
         for (const part of parts) {

@@ -1,17 +1,14 @@
 <script lang="ts">
     /**
      * /result/[attemptId] — shows score and per-question KWT breakdown.
-     * Each question shows the gapped sentence with the correct answer and
-     * what the user typed, colour-coded green/red.
      */
 
     import type {PageData} from './$types.js';
     import {t} from '$lib/i18n.svelte.js';
-    import {ArrowLeft, CheckFat, MedalMilitary, Trophy, XSquare} from 'phosphor-svelte';
+    import {ArrowClockwise, ArrowLeft, CheckFat, MedalMilitary, Trophy, XSquare} from 'phosphor-svelte';
 
     let {data} = $props<{ data: PageData }>();
 
-    // Use $derived so the reference stays reactive if data changes.
     const result = $derived(data.result);
 
     const GAP = '______';
@@ -31,6 +28,7 @@
 
     /**
      * Splits a gapped sentence into the parts before and after the gap.
+     *
      * @param s - Sentence containing `______` placeholder.
      * @returns [before, after] tuple.
      */
@@ -41,7 +39,11 @@
     }
 </script>
 
-<svelte:head><title>{t('result.title', {title: result.setTitle})}</title></svelte:head>
+<svelte:head>
+    <title>{t('result.title', {title: result.setTitle})}</title>
+    <meta property="og:title" content="{result.setTitle} — Results"/>
+    <meta property="og:description" content="Score: {result.score}/{result.total} ({result.percentage}%)"/>
+</svelte:head>
 
 <div class="result-page">
     <!-- Score summary -->
@@ -113,9 +115,17 @@
         {/each}
     </div>
 
-    <a href="/" class="btn-ghost back-btn">
-        <ArrowLeft size={16} weight="regular"/> {t('result.back')}
-    </a>
+    <!-- Footer actions -->
+    <div class="footer-actions">
+        {#if result.setSlug}
+            <a href="/set/{result.setSlug}" class="btn-primary retry-btn">
+                <ArrowClockwise size={16} weight="regular"/> {t('result.retryTest')}
+            </a>
+        {/if}
+        <a href="/" class="btn-ghost back-btn">
+            <ArrowLeft size={16} weight="regular"/> {t('result.back')}
+        </a>
+    </div>
 </div>
 
 <style>
@@ -265,7 +275,6 @@
     .s2 {
         font-size: var(--font-size-base);
         line-height: var(--line-height-loose);
-        color: var(--color-text);
     }
 
     .filled-answer {
@@ -306,12 +315,19 @@
         font-weight: var(--font-weight-bold);
     }
 
-    /* ── Back button ──────────────────────────────────────────────────── */
+    /* ── Footer actions ───────────────────────────────────────────────── */
+    .footer-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        flex-wrap: wrap;
+    }
+
+    .retry-btn,
     .back-btn {
         display: flex;
         align-items: center;
         gap: var(--space-2);
-        align-self: flex-start;
         padding: var(--space-2) var(--space-5);
     }
 </style>

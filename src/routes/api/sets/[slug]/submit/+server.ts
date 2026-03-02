@@ -7,25 +7,87 @@ import {nanoid} from 'nanoid';
 type SetRow = { id: number };
 
 /** Row type for the questions lookup query. */
-type QRow = { id: number; correct_answer: string; keyword: string };
+type QRow = { id: number; correct_answer: string };
 
 /**
- * Normalizes a user-supplied answer string for comparison.
- * Lowercases, trims, and collapses internal whitespace.
+ * Maps contracted English forms to their expanded equivalents.
+ * Used to normalise both stored answers and user input before comparison,
+ * so "hadn't" and "had not" are treated as identical.
+ */
+const CONTRACTIONS: Record<string, string> = {
+    "aren't": 'are not',
+    "can't": 'cannot',
+    "couldn't": 'could not',
+    "didn't": 'did not',
+    "doesn't": 'does not',
+    "don't": 'do not',
+    "hadn't": 'had not',
+    "hasn't": 'has not',
+    "haven't": 'have not',
+    "he'd": 'he would',
+    "he'll": 'he will',
+    "he's": 'he is',
+    "i'd": 'i would',
+    "i'll": 'i will',
+    "i'm": 'i am',
+    "i've": 'i have',
+    "isn't": 'is not',
+    "it's": 'it is',
+    "mustn't": 'must not',
+    "needn't": 'need not',
+    "shan't": 'shall not',
+    "she'd": 'she would',
+    "she'll": 'she will',
+    "she's": 'she is',
+    "shouldn't": 'should not',
+    "that's": 'that is',
+    "there's": 'there is',
+    "they'd": 'they would',
+    "they'll": 'they will',
+    "they're": 'they are',
+    "they've": 'they have',
+    "wasn't": 'was not',
+    "we'd": 'we would',
+    "we're": 'we are',
+    "we've": 'we have',
+    "weren't": 'were not',
+    "what's": 'what is',
+    "who's": 'who is',
+    "won't": 'will not',
+    "wouldn't": 'would not',
+    "you'd": 'you would',
+    "you'll": 'you will',
+    "you're": 'you are',
+    "you've": 'you have',
+};
+
+/**
+ * Expands English contractions in a string to their full forms.
+ *
+ * @param s - Input string, already lowercased.
+ * @returns String with contractions replaced by full forms.
+ */
+function expandContractions(s: string): string {
+    return s.replace(/[\w']+/g, (word) => CONTRACTIONS[word] ?? word);
+}
+
+/**
+ * Normalises a raw answer string for comparison.
+ * Lowercases, expands contractions, trims, and collapses whitespace.
  *
  * @param s - Raw answer string.
- * @returns Normalised string.
+ * @returns Normalised string ready for equality comparison.
  */
 function normalise(s: string): string {
-    return s.toLowerCase().trim().replace(/\s+/g, ' ');
+    return expandContractions(s.toLowerCase().trim().replace(/\s+/g, ' '));
 }
 
 export const POST: RequestHandler = async ({request, params}) => {
     const {slug} = params;
 
-    // better-sqlite3's prepare<T> takes a single generic for the *result* row type.
-    // Bind parameters are passed positionally to .get() / .all() / .run().
-    const set = db.prepare('SELECT id FROM sets WHERE slug = ?').get(slug!) as SetRow | undefined;
+    const set = db
+        .prepare('SELECT id FROM sets WHERE slug = ?')
+        .get(slug!) as SetRow | undefined;
 
     if (!set) throw error(404, 'Set not found.');
 
@@ -41,7 +103,7 @@ export const POST: RequestHandler = async ({request, params}) => {
     }
 
     const dbQuestions = db
-        .prepare('SELECT id, correct_answer, keyword FROM questions WHERE set_id = ?')
+        .prepare('SELECT id, correct_answer FROM questions WHERE set_id = ?')
         .all(set.id) as QRow[];
 
     const qMap = new Map<number, QRow>(dbQuestions.map((q) => [q.id, q]));
@@ -53,9 +115,7 @@ export const POST: RequestHandler = async ({request, params}) => {
         const q = qMap.get(sub.questionId);
         if (!q) continue;
 
-        const given = normalise(sub.given ?? '');
-        const correct = normalise(q.correct_answer);
-        const isCorrect = given === correct && given.includes(q.keyword.toLowerCase());
+        const isCorrect = normalise(sub.given ?? '') === normalise(q.correct_answer);
 
         if (isCorrect) score++;
         graded.push({questionId: sub.questionId, given: sub.given?.trim() ?? '', isCorrect});
@@ -70,8 +130,9 @@ export const POST: RequestHandler = async ({request, params}) => {
             .run(set.id, attemptSlug, score, total);
         const attemptId = r.lastInsertRowid as number;
 
+        const insertAnswer = db.prepare('INSERT INTO answers (attempt_id, question_id, given, is_correct) VALUES (?, ?, ?, ?)',);
         for (const g of graded) {
-            db.prepare('INSERT INTO answers (attempt_id, question_id, given, is_correct) VALUES (?, ?, ?, ?)').run(attemptId, g.questionId, g.given, g.isCorrect ? 1 : 0);
+            insertAnswer.run(attemptId, g.questionId, g.given, g.isCorrect ? 1 : 0);
         }
     })();
 

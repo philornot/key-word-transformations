@@ -4,13 +4,15 @@ import {error} from '@sveltejs/kit';
 import type {AttemptResult} from '$lib/types.js';
 
 export const load: PageServerLoad = ({params}) => {
-    const attempt = db.prepare('SELECT id, set_id, score, total FROM attempts WHERE slug = ?').get(params.attemptId) as {
-        id: number; set_id: number; score: number; total: number
-    } | undefined;
+    const attempt = db
+        .prepare('SELECT id, set_id, score, total FROM attempts WHERE slug = ?')
+        .get(params.attemptId) as { id: number; set_id: number; score: number; total: number } | undefined;
 
     if (!attempt) throw error(404, 'Result not found.');
 
-    const set = db.prepare('SELECT title FROM sets WHERE id = ?').get(attempt.set_id) as { title: string } | undefined;
+    const set = db
+        .prepare('SELECT title, slug FROM sets WHERE id = ?')
+        .get(attempt.set_id) as { title: string; slug: string } | undefined;
 
     type ARow = {
         question_id: number;
@@ -23,21 +25,24 @@ export const load: PageServerLoad = ({params}) => {
         is_correct: number;
     };
 
-    const rows = db.prepare(`SELECT a.question_id,
-                                    q.position,
-                                    q.sentence1,
-                                    q.sentence2_with_gap,
-                                    q.keyword,
-                                    q.correct_answer,
-                                    a.given,
-                                    a.is_correct
-                             FROM answers a
-                                      JOIN questions q ON q.id = a.question_id
-                             WHERE a.attempt_id = ?
-                             ORDER BY q.position`).all(attempt.id) as ARow[];
+    const rows = db.prepare(`
+        SELECT a.question_id,
+               q.position,
+               q.sentence1,
+               q.sentence2_with_gap,
+               q.keyword,
+               q.correct_answer,
+               a.given,
+               a.is_correct
+        FROM answers a
+                 JOIN questions q ON q.id = a.question_id
+        WHERE a.attempt_id = ?
+        ORDER BY q.position
+    `).all(attempt.id) as ARow[];
 
     const result: AttemptResult = {
         attemptSlug: params.attemptId,
+        setSlug: set?.slug ?? '',
         setTitle: set?.title ?? 'Unknown set',
         score: attempt.score,
         total: attempt.total,

@@ -22,7 +22,9 @@ export const POST: RequestHandler = async ({request}) => {
     const {title, questions} = body;
 
     if (!title?.trim()) throw error(400, 'title is required.');
-    if (!Array.isArray(questions) || questions.length === 0) throw error(400, 'At least one question is required.');
+    if (!Array.isArray(questions) || questions.length === 0) {
+        throw error(400, 'At least one question is required.');
+    }
 
     for (const [i, q] of questions.entries()) {
         if (!q.sentence1?.trim()) throw error(400, `Q${i + 1}: sentence1 required.`);
@@ -35,12 +37,19 @@ export const POST: RequestHandler = async ({request}) => {
     const slug = nanoid(8);
 
     db.transaction(() => {
-        const setResult = db.prepare('INSERT INTO sets (slug, title) VALUES (?, ?)').run(slug, title.trim());
+        const setResult = db
+            .prepare('INSERT INTO sets (slug, title) VALUES (?, ?)')
+            .run(slug, title.trim());
         const setId = setResult.lastInsertRowid as number;
 
+        const insertQuestion = db.prepare(`
+            INSERT INTO questions
+            (set_id, position, sentence1, sentence2_with_gap, keyword, correct_answer, max_words)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `);
+
         for (const [i, q] of questions.entries()) {
-            const qResult = db.prepare(`INSERT INTO questions (set_id, position, sentence1, sentence2_with_gap, keyword, correct_answer, max_words)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`).run(setId, i + 1, q.sentence1.trim(), q.sentence2WithGap.trim(), q.keyword.trim().toUpperCase(), q.correctAnswer.trim(), q.maxWords);
+            insertQuestion.run(setId, i + 1, q.sentence1.trim(), q.sentence2WithGap.trim(), q.keyword.trim().toUpperCase(), q.correctAnswer.trim(), q.maxWords,);
         }
     })();
 
