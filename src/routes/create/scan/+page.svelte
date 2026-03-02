@@ -1,14 +1,18 @@
 <script lang="ts">
     /**
      * /create/scan — file upload page with OCR processing.
-     * Sends result to reviewState then navigates to /review.
+     *
+     * Bug fixed: when OCR succeeded but returned 0 questions, the old code
+     * called goto('/review') anyway. The /review $effect immediately redirected
+     * back here because reviewState was empty, silently resetting the page —
+     * file disappeared, no error shown.
      */
 
     import {goto} from '$app/navigation';
     import {reviewState} from '$lib/store.svelte.js';
     import {t} from '$lib/i18n.svelte.js';
     import type {UploadResponse} from '$lib/types.js';
-    import {CircleNotch, CloudArrowUp, FilePdf, Image, MagnifyingGlass, X,} from 'phosphor-svelte';
+    import {CircleNotch, CloudArrowUp, FilePdf, Image, MagnifyingGlass, WarningCircle, X,} from 'phosphor-svelte';
 
     const MAX_MB = 20;
     const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -19,7 +23,8 @@
     let selectedFile = $state<File | null>(null);
 
     /**
-     * Validates and stores the chosen file.
+     * Validates and stores the chosen file, clearing any previous error.
+     *
      * @param file - The file from the input or drop event.
      */
     function handleFile(file: File) {
@@ -38,6 +43,8 @@
     function onInput(e: Event) {
         const f = (e.target as HTMLInputElement).files?.[0];
         if (f) handleFile(f);
+        // Reset so the same file can be re-selected after removal.
+        (e.target as HTMLInputElement).value = '';
     }
 
     function onDragOver(e: DragEvent) {
@@ -57,7 +64,8 @@
     }
 
     /**
-     * Formats bytes to a human-readable size string.
+     * Formats a byte count to a human-readable size string.
+     *
      * @param bytes - Raw byte count.
      * @returns Human-readable string like "1.4 MB".
      */
@@ -67,33 +75,59 @@
         return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
     }
 
-    /** Uploads file, runs OCR, then navigates to /review. */
+    /**
+     * Uploads the file, runs OCR, then navigates to /review.
+     * Shows a descriptive error if any step fails — including when OCR
+     * succeeds but finds no recognisable questions in the image.
+     */
     async function process() {
         if (!selectedFile) return;
         isProcessing = true;
         errorMessage = '';
+
         try {
             const fd = new FormData();
             fd.append('file', selectedFile);
+
             const res = await fetch('/api/upload', {method: 'POST', body: fd});
+
             if (!res.ok) {
-                const {error} = await res.json();
-                throw new Error(error ?? 'Upload failed.');
+                let message = 'Upload failed.';
+                try {
+                    message = (await res.json()).error ?? message;
+                } catch { /* non-JSON body */
+                }
+                errorMessage = message;
+                return;
             }
+
             const data: UploadResponse = await res.json();
+
+            // Guard against empty OCR result — previously this caused a silent
+            // redirect loop: goto('/review') → $effect detects empty state → goto('/create/scan').
+            if (data.questions.length === 0) {
+                errorMessage =
+                    'Nie udało się wykryć żadnych pytań KWT w tym pliku. ' +
+                    'Sprawdź jakość zdjęcia lub utwórz zestaw ręcznie.';
+                return;
+            }
+
             reviewState.questions = data.questions;
             reviewState.rawText = data.rawText;
             reviewState.title = selectedFile.name.replace(/\.[^.]+$/, '');
             goto('/review');
+
         } catch (err) {
-            errorMessage = err instanceof Error ? err.message : 'Unknown error.';
+            errorMessage = err instanceof Error ? err.message : 'Nieznany błąd. Spróbuj ponownie.';
         } finally {
             isProcessing = false;
         }
     }
 </script>
 
-<svelte:head><title>{t('scan.title')} — Key word transformations</title></svelte:head>
+<svelte:head>
+    <title>{t('scan.title')} — Key word transformations</title>
+</svelte:head>
 
 <div class="scan-page">
     <h1>{t('scan.title')}</h1>
@@ -126,7 +160,7 @@
                 </div>
                 <button
                         class="btn-ghost rm-btn"
-                        onclick={() => (selectedFile = null)}
+                        onclick={() => { selectedFile = null; errorMessage = ''; }}
                         aria-label={t('scan.removeFile')}
                 >
                     <X size={14} weight="bold"/>
@@ -144,7 +178,10 @@
     </div>
 
     {#if errorMessage}
-        <p class="error-banner" role="alert">{errorMessage}</p>
+        <div class="error-banner" role="alert">
+            <WarningCircle size={16} weight="bold" class="err-icon"/>
+            <span>{errorMessage}</span>
+        </div>
     {/if}
 
     <div class="actions">
@@ -262,6 +299,25 @@
     .rm-btn {
         padding: var(--space-1) var(--space-2);
         flex-shrink: 0;
+    }
+
+    /* ── Error banner ─────────────────────────────────────────────────── */
+    .error-banner {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-2);
+        color: var(--color-danger-dark);
+        background: var(--color-danger-light);
+        border: 1px solid var(--color-danger-border);
+        border-radius: var(--radius-md);
+        padding: var(--space-3) var(--space-4);
+        font-size: var(--font-size-sm);
+        line-height: var(--line-height-snug);
+    }
+
+    :global(.err-icon) {
+        flex-shrink: 0;
+        margin-top: 2px;
     }
 
     /* ── Actions ──────────────────────────────────────────────────────── */
