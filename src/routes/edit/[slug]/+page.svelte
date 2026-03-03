@@ -1,17 +1,6 @@
 <script lang="ts">
     /**
      * @fileoverview /edit/[slug] — unified set editor for admins and regular users.
-     *
-     * Admin session:  Saves in-place (same slug, same link).
-     * No session:     Saves as a new fork. If content is unchanged the server
-     *                 returns the original slug and we redirect there without
-     *                 creating a duplicate.
-     *
-     * Svelte 5 note: any read of a `$props()` value inside `$state(...)` triggers
-     * the "state_referenced_locally" warning because Svelte tracks that `data` is
-     * a reactive prop. The fix is to derive the seed values with `$derived` so
-     * Svelte knows the dependency is intentional, and then snapshot them into
-     * plain `$state` for the mutable editor fields.
      */
 
     import {goto} from '$app/navigation';
@@ -29,8 +18,6 @@
 
     let {data} = $props<{ data: PageData }>();
 
-    // $derived reads are tracked by Svelte and silence the warning.
-    // We snapshot them immediately into $state for the mutable editor fields.
     const isAdmin = $derived(data.isAdmin);
     const serverSlug = $derived(data.set.slug);
     const serverTitle = $derived(data.set.title);
@@ -47,9 +34,9 @@
             sentence2WithGap: q.sentence2WithGap,
             keyword: q.keyword,
             correctAnswer: q.correctAnswer,
-            // Spread into new arrays so mutations don't affect the source object.
             alternativeAnswers: [...q.alternativeAnswers],
             exampleWrongAnswers: [...q.exampleWrongAnswers],
+            minWords: q.minWords ?? 2,
             maxWords: q.maxWords,
         })),
     );
@@ -69,6 +56,7 @@
             correctAnswer: null,
             alternativeAnswers: [],
             exampleWrongAnswers: [],
+            minWords: 2,
             maxWords: 5,
         });
     }
@@ -116,9 +104,6 @@
 
     /**
      * Saves the edited set and redirects to the resulting slug.
-     *
-     * Admin path: PUT /api/sets/[slug] → in-place update, same slug returned.
-     * User path:  PUT /api/sets/[slug] → new slug if changed, original if not.
      */
     async function save() {
         submitAttempted = true;
@@ -141,6 +126,7 @@
                         correctAnswer: q.correctAnswer!.trim(),
                         alternativeAnswers: q.alternativeAnswers,
                         exampleWrongAnswers: q.exampleWrongAnswers,
+                        minWords: q.minWords,
                         maxWords: q.maxWords,
                     })),
                 }),

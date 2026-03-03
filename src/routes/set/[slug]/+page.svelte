@@ -2,13 +2,18 @@
     /**
      * /set/[slug] — interactive KWT test page.
      * Correct answers are never sent to the browser.
+     *
+     * Word-count validation runs on the client only and is purely advisory —
+     * we warn the student but do not block submission. The check fires when
+     * focus leaves the card that contains the gap input (focusout with
+     * relatedTarget outside the card).
      */
 
     import type {PageData} from './$types.js';
     import type {PublicKWTQuestion} from '$lib/types.js';
     import {goto} from '$app/navigation';
     import {t} from '$lib/i18n.svelte.js';
-    import {CheckFat, PencilSimple} from 'phosphor-svelte';
+    import {CheckFat, PencilSimple, WarningCircleIcon} from 'phosphor-svelte';
 
     let {data} = $props<{ data: PageData }>();
 
@@ -17,6 +22,12 @@
     let answers = $state<Record<number, string>>({});
     let isSubmitting = $state(false);
     let errorMessage = $state('');
+
+    /**
+     * Per-question word-count warning messages.
+     * Key = question id, value = translated warning string or null (no warning).
+     */
+    let wordCountWarnings = $state<Record<number, string | null>>({});
 
     const unanswered = $derived(
         data.set.questions.filter((q: PublicKWTQuestion) => !answers[q.id]?.trim()).length,
@@ -34,8 +45,81 @@
         return [s.slice(0, idx), s.slice(idx + GAP.length)];
     }
 
-    /** Submits all answers and redirects to the result page. */
+    /**
+     * Counts the number of whitespace-separated words in a string.
+     * Returns 0 for empty/whitespace-only input.
+     *
+     * @param s - Input string.
+     * @returns Word count.
+     */
+    function wordCount(s: string): number {
+        return s.trim() === '' ? 0 : s.trim().split(/\s+/).length;
+    }
+
+    /**
+     * Validates the word count of the current answer for a question and
+     * updates {@link wordCountWarnings} accordingly.
+     *
+     * Called on `focusout` from the card element so the warning only
+     * appears once the student has finished with that question.
+     *
+     * @param q - The question whose answer is being validated.
+     */
+    function validateWordCount(q: PublicKWTQuestion) {
+        const raw = answers[q.id] ?? '';
+        if (!raw.trim()) {
+            // Empty answer — no word-count warning (the unanswered counter handles that).
+            wordCountWarnings[q.id] = null;
+            return;
+        }
+        const n = wordCount(raw);
+        if (n < q.minWords) {
+            wordCountWarnings[q.id] = t('set.warnTooFew', {n, min: q.minWords});
+        } else if (n > q.maxWords) {
+            wordCountWarnings[q.id] = t('set.warnTooMany', {n, max: q.maxWords});
+        } else {
+            wordCountWarnings[q.id] = null;
+        }
+    }
+
+    /**
+     * Handles the `focusout` event on a question card.
+     * Fires validation only when focus moves *outside* the card, so that
+     * tabbing between fields inside the same card does not trigger it.
+     *
+     * @param e - FocusEvent from the card element.
+     * @param q - The question associated with this card.
+     */
+    function onCardFocusOut(e: FocusEvent, q: PublicKWTQuestion) {
+        const card = e.currentTarget as HTMLElement;
+        const next = e.relatedTarget as Node | null;
+        // relatedTarget is null when focus leaves the page entirely (e.g. alt-tab).
+        if (!next || !card.contains(next)) {
+            validateWordCount(q);
+        }
+    }
+
+    /**
+     * Returns the word-range label for a question.
+     * Shows "X words" when min === max, otherwise "X–Y words".
+     *
+     * @param q - The question.
+     * @returns Translated word-range string.
+     */
+    function wordRangeLabel(q: PublicKWTQuestion): string {
+        if (q.minWords === q.maxWords) {
+            return t('set.wordRangeExact', {max: q.maxWords});
+        }
+        return t('set.wordRange', {min: q.minWords, max: q.maxWords});
+    }
+
+    /** Validates all answers' word counts before submitting and submits. */
     async function submit() {
+        // Run word-count validation for every question so warnings are visible.
+        for (const q of data.set.questions as PublicKWTQuestion[]) {
+            validateWordCount(q);
+        }
+
         isSubmitting = true;
         errorMessage = '';
         try {
@@ -55,7 +139,7 @@
                 return;
             }
             const {attemptSlug} = await res.json();
-            goto(`/result/${attemptSlug}`);
+            await goto(`/result/${attemptSlug}`);
         } catch (err) {
             errorMessage = err instanceof Error ? err.message : 'Unknown error.';
         } finally {
@@ -78,15 +162,13 @@
         {/if}
         <h1>{data.set.title}</h1>
         <p class="q-count">{t('set.questions', {n: data.set.questions.length})}</p>
-        <!-- Edit button — always visible; behaviour differs for admin vs. regular user -->
         <a href="/edit/{data.set.slug}" class="edit-link">
             <PencilSimple size={14} weight="bold"/>
             Edytuj
         </a>
         {#if data.set.questions[0]}
             <p class="instructions">
-                {t('set.maxWords', {n: data.set.questions[0].maxWords})} — {t('set.keyword')} {t('set.keywordRequired')}
-                .
+                {t('set.keyword')} {t('set.keywordRequired')}.
             </p>
         {/if}
     </div>
@@ -96,12 +178,19 @@
             {#each data.set.questions as q (q.id)}
                 {@const [before, after] = splitGap(q.sentence2WithGap)}
                 {@const filled = !!answers[q.id]?.trim()}
+                {@const warning = wordCountWarnings[q.id]}
 
-                <div class="q-card card" class:filled>
+                <!-- focusout fires on the card; we check if focus moved outside -->
+                <div
+                        class="q-card card"
+                        class:filled
+                        class:has-warning={!!warning}
+                        onfocusout={(e) => onCardFocusOut(e, q)}
+                >
                     <div class="q-meta">
                         <span class="q-pos">{q.position}.</span>
                         <span class="keyword">{t('set.keyword')} <strong>{q.keyword}</strong></span>
-                        <span class="max-words">{t('set.maxWords', {n: q.maxWords})}</span>
+                        <span class="max-words">{wordRangeLabel(q)}</span>
                     </div>
 
                     <p class="sentence1">{q.sentence1}</p>
@@ -109,15 +198,22 @@
                     <div class="sentence2-wrap">
                         <span class="s2-label">{t('set.sentence2label')}</span>
                         <span class="sentence2">
-              {before}<input
+                            {before}<input
                                 type="text"
                                 class="gap-input"
                                 aria-label="Answer for question {q.position}"
                                 placeholder={t('set.gapPlaceholder')}
                                 bind:value={answers[q.id]}
                         />{after}
-            </span>
+                        </span>
                     </div>
+
+                    {#if warning}
+                        <p class="word-count-warning" role="alert">
+                            <WarningCircleIcon size={13} weight="bold"/>
+                            {warning}
+                        </p>
+                    {/if}
                 </div>
             {/each}
         </div>
@@ -201,6 +297,11 @@
 
     .q-card.filled {
         border-color: #c3fae8;
+    }
+
+    /* Warning state overrides the filled green border */
+    .q-card.has-warning {
+        border-color: var(--color-warning);
     }
 
     .q-meta {
@@ -289,6 +390,20 @@
         color: var(--color-text-faint);
         font-style: italic;
         font-size: var(--font-size-sm);
+    }
+
+    /* ── Word count warning ───────────────────────────────────────────── */
+    .word-count-warning {
+        display: flex;
+        align-items: center;
+        gap: var(--space-1);
+        color: var(--color-warning-dark);
+        background: var(--color-warning-light);
+        border: 1px solid var(--color-warning);
+        border-radius: var(--radius-sm);
+        padding: var(--space-1) var(--space-3);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-semibold);
     }
 
     .submit-bar {

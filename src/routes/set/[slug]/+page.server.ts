@@ -11,11 +11,17 @@ export const load: PageServerLoad = ({params}) => {
     if (!set) throw error(404, 'Set not found.');
 
     type QRow = {
-        id: number; position: number; sentence1: string; sentence2_with_gap: string; keyword: string; max_words: number;
+        id: number;
+        position: number;
+        sentence1: string;
+        sentence2_with_gap: string;
+        keyword: string;
+        min_words: number;
+        max_words: number;
     };
 
     const rows = db.prepare(`
-        SELECT id, position, sentence1, sentence2_with_gap, keyword, max_words
+        SELECT id, position, sentence1, sentence2_with_gap, keyword, min_words, max_words
         FROM questions
         WHERE set_id = ?
         ORDER BY position
@@ -28,7 +34,8 @@ export const load: PageServerLoad = ({params}) => {
             sentence1: r.sentence1,
             sentence2WithGap: r.sentence2_with_gap,
             keyword: r.keyword,
-            maxWords: r.max_words as 3 | 4 | 5,
+            minWords: r.min_words,
+            maxWords: r.max_words,
         })),
     };
 

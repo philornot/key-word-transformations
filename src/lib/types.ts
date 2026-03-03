@@ -22,8 +22,10 @@ export interface ParsedKWTQuestion {
      * feedback in the result view (e.g. CKE-published incorrect examples).
      */
     exampleWrongAnswers: string[];
-    /** Maximum number of words allowed (typically 3, 4, or 5). */
-    maxWords: 3 | 4 | 5;
+    /** Minimum number of words required in the answer (inclusive). */
+    minWords: number;
+    /** Maximum number of words allowed in the answer (inclusive). */
+    maxWords: number;
 }
 
 /** A persisted KWT question loaded from the database. */
@@ -36,7 +38,10 @@ export interface KWTQuestion {
     correctAnswer: string;
     alternativeAnswers: string[];
     exampleWrongAnswers: string[];
-    maxWords: 3 | 4 | 5;
+    /** Minimum number of words required in the answer (inclusive). */
+    minWords: number;
+    /** Maximum number of words allowed in the answer (inclusive). */
+    maxWords: number;
 }
 
 /** A question sent to the browser for test-taking (no answers). */
@@ -46,7 +51,10 @@ export interface PublicKWTQuestion {
     sentence1: string;
     sentence2WithGap: string;
     keyword: string;
-    maxWords: 3 | 4 | 5;
+    /** Minimum number of words required in the answer (inclusive). */
+    minWords: number;
+    /** Maximum number of words allowed in the answer (inclusive). */
+    maxWords: number;
 }
 
 /** A set as sent to the browser. */

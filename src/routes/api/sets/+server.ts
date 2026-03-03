@@ -13,7 +13,8 @@ interface QuestionInput {
     correctAnswer: string;
     alternativeAnswers?: string[];
     exampleWrongAnswers?: string[];
-    maxWords: 3 | 4 | 5;
+    minWords?: number;
+    maxWords: number;
 }
 
 export const POST: RequestHandler = async ({request, cookies}) => {
@@ -36,7 +37,13 @@ export const POST: RequestHandler = async ({request, cookies}) => {
         if (!q.sentence2WithGap?.includes('______')) throw error(400, `Q${i + 1}: sentence2WithGap must contain ______.`);
         if (!q.keyword?.trim()) throw error(400, `Q${i + 1}: keyword required.`);
         if (!q.correctAnswer?.trim()) throw error(400, `Q${i + 1}: correctAnswer required.`);
-        if (![3, 4, 5].includes(q.maxWords)) throw error(400, `Q${i + 1}: maxWords must be 3, 4, or 5.`);
+        if (!Number.isInteger(q.maxWords) || q.maxWords < 1 || q.maxWords > 20) {
+            throw error(400, `Q${i + 1}: maxWords must be an integer between 1 and 20.`);
+        }
+        const minWords = q.minWords ?? 2;
+        if (!Number.isInteger(minWords) || minWords < 1 || minWords > q.maxWords) {
+            throw error(400, `Q${i + 1}: minWords must be an integer between 1 and maxWords.`);
+        }
     }
 
     const isAdmin = !!env.ADMIN_PASSWORD && cookies.get(ADMIN_COOKIE) === env.ADMIN_PASSWORD;
@@ -53,12 +60,12 @@ export const POST: RequestHandler = async ({request, cookies}) => {
         const insertQuestion = db.prepare(`
             INSERT INTO questions
             (set_id, position, sentence1, sentence2_with_gap, keyword,
-             correct_answer, alternative_answers, example_wrong_answers, max_words)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             correct_answer, alternative_answers, example_wrong_answers, min_words, max_words)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         for (const [i, q] of questions.entries()) {
-            insertQuestion.run(setId, i + 1, q.sentence1.trim(), q.sentence2WithGap.trim(), q.keyword.trim().toUpperCase(), q.correctAnswer.trim(), JSON.stringify((q.alternativeAnswers ?? []).map((a) => a.trim()).filter(Boolean)), JSON.stringify((q.exampleWrongAnswers ?? []).map((a) => a.trim()).filter(Boolean)), q.maxWords,);
+            insertQuestion.run(setId, i + 1, q.sentence1.trim(), q.sentence2WithGap.trim(), q.keyword.trim().toUpperCase(), q.correctAnswer.trim(), JSON.stringify((q.alternativeAnswers ?? []).map((a) => a.trim()).filter(Boolean)), JSON.stringify((q.exampleWrongAnswers ?? []).map((a) => a.trim()).filter(Boolean)), q.minWords ?? 2, q.maxWords,);
         }
     })();
 

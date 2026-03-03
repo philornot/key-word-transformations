@@ -17,7 +17,6 @@
         onTouch?: () => void;
     }
 
-    // KwtQuestionEditor.svelte
     let {question = $bindable(), index, error, onRemove, onTouch}: Props = $props();
 
     const GAP = '______';
@@ -41,9 +40,6 @@
      *    six-underscore gap marker `______`.
      *  - Cursor position is preserved so typing feels natural.
      *
-     * This means the user can simply type a single `_` and it immediately
-     * becomes the gap — they don't have to count characters.
-     *
      * @param e - Native input event from the sentence2 textarea.
      */
     function onGapInput(e: Event) {
@@ -51,12 +47,6 @@
         const raw = el.value;
         const cursorBefore = raw.slice(0, el.selectionStart ?? 0);
 
-        /**
-         * Replace strategy based on match length:
-         *   length === 1   → user just typed a single `_`  → expand to canonical gap
-         *   length 2–5     → user backspaced into the gap  → remove it entirely
-         *   length >= 6    → canonical or pasted block     → normalise to canonical gap
-         */
         const normalised = raw.replace(/_+/g, (match) => {
             if (match.length < 6) return match.length === 1 ? CANONICAL_GAP : '';
             return CANONICAL_GAP;
@@ -130,6 +120,42 @@
             handler();
         }
     }
+
+    /**
+     * Clamps a numeric input value to the given min/max range and writes it
+     * back to the question field.
+     *
+     * @param e - Native input event from a number input.
+     * @param field - Which question field to update ('minWords' | 'maxWords').
+     * @param lo - Minimum allowed value.
+     * @param hi - Maximum allowed value.
+     */
+    function onWordCountInput(
+        e: Event,
+        field: 'minWords' | 'maxWords',
+        lo: number,
+        hi: number,
+    ) {
+        const raw = parseInt((e.currentTarget as HTMLInputElement).value, 10);
+        if (!Number.isFinite(raw)) return;
+        question[field] = Math.max(lo, Math.min(hi, raw));
+    }
+
+    /**
+     * Ensures minWords <= maxWords after the user leaves a word-count input.
+     * If the invariant is violated, the *other* field is nudged to match.
+     *
+     * @param changed - Which field the user just edited.
+     */
+    function enforceWordCountOrder(changed: 'minWords' | 'maxWords') {
+        if (question.minWords > question.maxWords) {
+            if (changed === 'minWords') {
+                question.maxWords = question.minWords;
+            } else {
+                question.minWords = question.maxWords;
+            }
+        }
+    }
 </script>
 
 <div class="q-card card" class:has-error={error !== null}>
@@ -172,7 +198,7 @@
             onblur={() => onTouch?.()}
     />
 
-    <!-- Sentence 2 — oninput normalises any _+ run to the canonical gap -->
+    <!-- Sentence 2 -->
     <label class="field-label" for="s2-{index}">
         {t('review.sentence2')}
         <span class="gap-hint">— wpisz <code>_</code> żeby wstawić lukę</span>
@@ -197,7 +223,7 @@
         </button>
     </div>
 
-    <!-- Primary answer + max words -->
+    <!-- Primary answer + word range -->
     <div class="bottom-row">
         <div class="answer-field">
             <label class="field-label" for="ans-{index}">{t('review.answer')}</label>
@@ -210,13 +236,38 @@
                     onblur={() => onTouch?.()}
             />
         </div>
-        <div class="mw-field">
-            <label class="field-label" for="mw-{index}">{t('review.maxWords')}</label>
-            <select id="mw-{index}" class="text-input" bind:value={question.maxWords}>
-                <option value={3}>{t('common.words3')}</option>
-                <option value={4}>{t('common.words4')}</option>
-                <option value={5}>{t('common.words5')}</option>
-            </select>
+
+        <!-- Word range: two small number spinners side by side -->
+        <div class="word-range-field">
+            <span class="field-label">{t('review.wordRange')}</span>
+            <div class="word-range-inputs">
+                <label class="sr-only" for="mw-min-{index}">{t('review.minWordsLabel')}</label>
+                <input
+                        id="mw-min-{index}"
+                        class="text-input word-count-input"
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={question.minWords}
+                        oninput={(e) => onWordCountInput(e, 'minWords', 1, 10)}
+                        onblur={() => { enforceWordCountOrder('minWords'); onTouch?.(); }}
+                        title={t('review.minWordsLabel')}
+                />
+                <span class="range-sep" aria-hidden="true">–</span>
+                <label class="sr-only" for="mw-max-{index}">{t('review.maxWordsLabel')}</label>
+                <input
+                        id="mw-max-{index}"
+                        class="text-input word-count-input"
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={question.maxWords}
+                        oninput={(e) => onWordCountInput(e, 'maxWords', 1, 10)}
+                        onblur={() => { enforceWordCountOrder('maxWords'); onTouch?.(); }}
+                        title={t('review.maxWordsLabel')}
+                />
+                <span class="range-unit">wyrazów</span>
+            </div>
         </div>
     </div>
 
@@ -338,7 +389,6 @@
         resize: none;
     }
 
-    /* ── Sentence 2 label hint ────────────────────────────────────────── */
     .gap-hint {
         font-size: var(--font-size-xs);
         font-weight: var(--font-weight-normal);
@@ -355,10 +405,9 @@
         border-radius: 3px;
     }
 
-    /* ── Sentence 2 textarea — renders ______ as a continuous underline ─ */
     .gap-textarea {
         font-family: var(--font-mono), monospace;
-        letter-spacing: -0.03em; /* closes spacing between underscores */
+        letter-spacing: -0.03em;
     }
 
     .s2-wrap {
@@ -390,15 +439,58 @@
         gap: var(--space-1);
     }
 
-    .mw-field {
+    /* ── Word range inputs ────────────────────────────────────────────── */
+    .word-range-field {
         display: flex;
         flex-direction: column;
         gap: var(--space-1);
+        flex-shrink: 0;
     }
 
-    .mw-field select {
-        width: 120px;
-        cursor: pointer;
+    .word-range-inputs {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+    }
+
+    .word-count-input {
+        width: 56px;
+        text-align: center;
+        padding: var(--space-2) var(--space-1);
+        /* hide browser spinner arrows — we rely on direct typing */
+        appearance: textfield;
+        -moz-appearance: textfield;
+    }
+
+    .word-count-input::-webkit-outer-spin-button,
+    .word-count-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    .range-sep {
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+    }
+
+    .range-unit {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+        white-space: nowrap;
+    }
+
+    /* ── Visually hidden label (accessible) ──────────────────────────── */
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
     }
 
     /* ── Answer chip lists ────────────────────────────────────────────── */

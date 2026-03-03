@@ -20,6 +20,7 @@
             keyword: q.keyword.toUpperCase(),
             alternativeAnswers: q.alternativeAnswers ?? [],
             exampleWrongAnswers: q.exampleWrongAnswers ?? [],
+            minWords: q.minWords ?? 2,
         })),
     );
     let isPublishing = $state(false);
@@ -43,6 +44,7 @@
             correctAnswer: null,
             alternativeAnswers: [],
             exampleWrongAnswers: [],
+            minWords: 2,
             maxWords: 5,
         });
     }
@@ -72,7 +74,6 @@
 
     /**
      * Returns the error for a question only when the user should see it.
-     * Error is shown after the question has been touched OR after a publish attempt.
      *
      * @param q - The question to check.
      * @param index - The array index of the question.
@@ -110,6 +111,7 @@
                         correctAnswer: q.correctAnswer!.trim(),
                         alternativeAnswers: q.alternativeAnswers,
                         exampleWrongAnswers: q.exampleWrongAnswers,
+                        minWords: q.minWords,
                         maxWords: q.maxWords,
                     })),
                 }),

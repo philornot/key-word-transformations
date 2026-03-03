@@ -39,6 +39,7 @@
             correctAnswer: null,
             alternativeAnswers: [],
             exampleWrongAnswers: [],
+            minWords: 2,
             maxWords: 5,
         });
     }
@@ -68,8 +69,7 @@
     }
 
     /**
-     * Returns the error for a question only when the user should see it:
-     * after touching the question's fields, or after a failed publish attempt.
+     * Returns the error for a question only when the user should see it.
      *
      * @param q - The draft question.
      * @returns Error message string or null.
@@ -85,9 +85,7 @@
         questions.every((q) => questionError(q) === null),
     );
 
-    /**
-     * Publishes the set and redirects to the live URL.
-     */
+    /** Publishes the set and redirects to the live URL. */
     async function publish() {
         submitAttempted = true;
         if (!isValid) return;
@@ -108,6 +106,7 @@
                         correctAnswer: q.correctAnswer!.trim(),
                         alternativeAnswers: q.alternativeAnswers,
                         exampleWrongAnswers: q.exampleWrongAnswers,
+                        minWords: q.minWords,
                         maxWords: q.maxWords,
                     })),
                 }),
