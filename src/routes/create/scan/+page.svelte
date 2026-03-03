@@ -2,10 +2,12 @@
     /**
      * /create/scan — file upload page with OCR processing.
      *
-     * Bug fixed: when OCR succeeded but returned 0 questions, the old code
-     * called goto('/review') anyway. The /review $effect immediately redirected
-     * back here because reviewState was empty, silently resetting the page —
-     * file disappeared, no error shown.
+     * Supports three input methods:
+     *  1. Drag & drop a file onto the drop zone.
+     *  2. Click "Browse files" and pick a file from disk.
+     *  3. Ctrl+V anywhere on the page — pastes a clipboard image directly,
+     *     or (if the clipboard contains plain text) sends it straight to the
+     *     parser without going through OCR at all.
      */
 
     import {goto} from '$app/navigation';
@@ -15,12 +17,14 @@
     import {
         CircleNotchIcon,
         CloudArrowUpIcon,
+        ClipboardIcon,
         FilePdfIcon,
         ImageIcon,
         MagnifyingGlassIcon,
         WarningCircleIcon,
         XIcon,
     } from 'phosphor-svelte';
+    import {parseQuestions} from '$lib/parser.js';
 
     const MAX_MB = 20;
     const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -29,6 +33,9 @@
     let isProcessing = $state(false);
     let errorMessage = $state('');
     let selectedFile = $state<File | null>(null);
+
+    /** True when the selected "file" came from a clipboard paste (image). */
+    let pastedImage = $state(false);
 
     /**
      * Validates and stores the chosen file, clearing any previous error.
@@ -46,12 +53,12 @@
             return;
         }
         selectedFile = file;
+        pastedImage = false;
     }
 
     function onInput(e: Event) {
         const f = (e.target as HTMLInputElement).files?.[0];
         if (f) handleFile(f);
-        // Reset so the same file can be re-selected after removal.
         (e.target as HTMLInputElement).value = '';
     }
 
@@ -72,6 +79,58 @@
     }
 
     /**
+     * Handles Ctrl+V / paste events anywhere on the page.
+     *
+     * Two cases:
+     *  - Clipboard contains an image → treat it like a file upload; store it
+     *    as the selected file and let the user click "Detect questions".
+     *  - Clipboard contains plain text → skip OCR entirely, run the client-
+     *    side parser immediately and navigate to /review.
+     *
+     * @param e - The global paste event.
+     */
+    async function onGlobalPaste(e: ClipboardEvent) {
+        // Don't intercept pastes inside inputs/textareas.
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+        errorMessage = '';
+
+        // ── Image in clipboard ──────────────────────────────────────────
+        const imageItem = Array.from(e.clipboardData?.items ?? []).find(
+            (item) => item.type.startsWith('image/'),
+        );
+        if (imageItem) {
+            const file = imageItem.getAsFile();
+            if (!file) return;
+            selectedFile = new File([file], 'screenshot.png', {type: file.type});
+            pastedImage = true;
+            return;
+        }
+
+        // ── Plain text in clipboard ─────────────────────────────────────
+        const text = e.clipboardData?.getData('text/plain') ?? '';
+        if (!text.trim()) return;
+
+        isProcessing = true;
+        try {
+            const questions = parseQuestions(text);
+            if (questions.length === 0) {
+                errorMessage =
+                    'Nie udało się wykryć żadnych pytań KWT w wklejonym tekście. ' +
+                    'Sprawdź format lub utwórz zestaw ręcznie.';
+                return;
+            }
+            reviewState.questions = questions;
+            reviewState.rawText = text;
+            reviewState.title = '';
+            await goto('/review');
+        } finally {
+            isProcessing = false;
+        }
+    }
+
+    /**
      * Formats a byte count to a human-readable size string.
      *
      * @param bytes - Raw byte count.
@@ -85,8 +144,6 @@
 
     /**
      * Uploads the file, runs OCR, then navigates to /review.
-     * Shows a descriptive error if any step fails — including when OCR
-     * succeeds but finds no recognisable questions in the image.
      */
     async function process() {
         if (!selectedFile) return;
@@ -101,18 +158,13 @@
 
             if (!res.ok) {
                 let message = 'Upload failed.';
-                try {
-                    message = (await res.json()).error ?? message;
-                } catch { /* non-JSON body */
-                }
+                try { message = (await res.json()).error ?? message; } catch { /* non-JSON */ }
                 errorMessage = message;
                 return;
             }
 
             const data: UploadResponse = await res.json();
 
-            // Guard against empty OCR result — previously this caused a silent
-            // redirect loop: goto('/review') → $effect detects empty state → goto('/create/scan').
             if (data.questions.length === 0) {
                 errorMessage =
                     'Nie udało się wykryć żadnych pytań KWT w tym pliku. ' +
@@ -133,6 +185,8 @@
     }
 </script>
 
+<svelte:window onpaste={onGlobalPaste}/>
+
 <svelte:head>
     <title>{t('scan.title')} — Key word transformations</title>
 </svelte:head>
@@ -140,6 +194,14 @@
 <div class="scan-page">
     <h1>{t('scan.title')}</h1>
     <p class="subtitle">{t('scan.subtitle')}</p>
+
+    <!-- Paste hint banner -->
+    {#if !selectedFile && !isProcessing}
+        <div class="paste-hint">
+            <ClipboardIcon size={15} weight="bold"/>
+            Wklej screenshot lub tekst z pytaniami przez <kbd>Ctrl+V</kbd> — zestaw zostanie wykryty automatycznie.
+        </div>
+    {/if}
 
     <div
             class="drop-zone card"
@@ -155,20 +217,22 @@
     >
         {#if selectedFile}
             <div class="file-preview">
-        <span class="file-icon">
-          {#if selectedFile.type === 'application/pdf'}
-            <FilePdfIcon size={36} weight="duotone"/>
-          {:else}
-            <ImageIcon size={36} weight="duotone"/>
-          {/if}
-        </span>
+                <span class="file-icon">
+                    {#if pastedImage}
+                        <ClipboardIcon size={36} weight="duotone"/>
+                    {:else if selectedFile.type === 'application/pdf'}
+                        <FilePdfIcon size={36} weight="duotone"/>
+                    {:else}
+                        <ImageIcon size={36} weight="duotone"/>
+                    {/if}
+                </span>
                 <div class="file-info">
-                    <strong>{selectedFile.name}</strong>
+                    <strong>{pastedImage ? 'Wklejony screenshot' : selectedFile.name}</strong>
                     <span class="size">{fmt(selectedFile.size)}</span>
                 </div>
                 <button
                         class="btn-ghost rm-btn"
-                        onclick={() => { selectedFile = null; errorMessage = ''; }}
+                        onclick={() => { selectedFile = null; pastedImage = false; errorMessage = ''; }}
                         aria-label={t('scan.removeFile')}
                 >
                     <XIcon size={14} weight="bold"/>
@@ -225,6 +289,32 @@
         color: var(--color-text-muted);
         font-size: var(--font-size-sm);
         margin-top: calc(-1 * var(--space-3));
+    }
+
+    /* ── Paste hint ───────────────────────────────────────────────────── */
+    .paste-hint {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        border: 1px solid var(--color-primary-muted);
+        border-radius: var(--radius-md);
+        padding: var(--space-3) var(--space-4);
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-medium);
+    }
+
+    kbd {
+        display: inline-block;
+        background: var(--color-surface);
+        border: 1px solid var(--color-primary-muted);
+        border-radius: var(--radius-sm);
+        padding: 1px 6px;
+        font-family: var(--font-mono), monospace;
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-bold);
+        box-shadow: 0 1px 0 var(--color-primary-muted);
     }
 
     /* ── Drop zone ────────────────────────────────────────────────────── */
@@ -347,8 +437,6 @@
     }
 
     @keyframes spin {
-        to {
-            transform: rotate(360deg);
-        }
+        to { transform: rotate(360deg); }
     }
 </style>

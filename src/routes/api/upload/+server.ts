@@ -1,7 +1,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { json, error } from '@sveltejs/kit';
 import { extractText } from '$lib/server/ocr.js';
-import { parseQuestions } from '$lib/server/parser.js';
+import { parseQuestions } from '$lib/parser.js';
 
 const MAX_BYTES = 20 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([

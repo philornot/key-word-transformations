@@ -17,8 +17,8 @@
  * plausible break point so the editor shows something the user can fix.
  */
 
-import type {ParsedKWTQuestion} from '../types.js';
-import {CANONICAL_GAP} from '../constants.js';
+import type {ParsedKWTQuestion} from './types.js';
+import {CANONICAL_GAP} from './constants.js';
 
 /**
  * Matches numbered exercise starts in both formats:
