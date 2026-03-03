@@ -1,50 +1,100 @@
 /**
  * @fileoverview Heuristic paste-splitter for KWT answer lists.
  *
- * Tries a sequence of delimiter strategies in order of reliability.
- * Returns null when the pasted text looks like a single answer so the
- * caller can fall back to the default paste behaviour.
- */
-
-/**
- * Normalises whitespace inside a single answer token.
- * Collapses all runs of whitespace (including newlines from PDF word-wrap)
- * into a single space.
+ * Tries a sequence of delimiter strategies in priority order and returns
+ * the first one that yields 2+ distinct answers. Returns null when the
+ * pasted text looks like a single answer so the caller can fall through
+ * to normal paste behaviour.
  *
- * @param s - Raw token string.
- * @returns Trimmed, single-spaced string.
+ * Supported patterns (examples):
+ *   Semicolons (inline):    "ans1; ans2; ans3"
+ *   Semicolons (per-line):  "ans1;\nans2;\nans3"
+ *   Pipes:                  "ans1 | ans2 | ans3"
+ *   Slashes:                "ans1 / ans2 / ans3"
+ *   Numbered list:          "1. ans1\n2. ans2"
+ *   Letter list:            "a) ans1\nb) ans2"
+ *   Commas (inline):        "ans1, ans2, ans3"
+ *   Commas (per-line):      "ans1,\nans2,\nans3,"
+ *   Plain newlines:         "ans1\nans2\nans3"
  */
-function normaliseToken(s: string): string {
-    return s.replace(/\s+/g, ' ').trim();
-}
 
-/** One splitting strategy: returns answers or null if the pattern doesn't match. */
+/** One splitting strategy: returns tokens or null if the pattern doesn't match. */
 type Strategy = (text: string) => string[] | null;
 
 /**
- * Ordered list of delimiter strategies, from most explicit to least.
- * The first strategy that yields 2+ non-empty tokens wins.
+ * Normalises a single answer token:
+ *  - Collapses internal whitespace (handles PDF word-wrap newlines).
+ *  - Strips trailing list-delimiter characters (`,`, `;`, `/`) so that
+ *    per-line delimiters like "ans1,\nans2," produce clean tokens.
+ *
+ * @param s - Raw token string.
+ * @returns Clean, trimmed answer string.
  */
+function normaliseToken(s: string): string {
+    return s
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/[,;/]+$/, '')
+        .trim();
+}
+
+/**
+ * Splits `text` on `delimiter` and returns clean, non-empty tokens.
+ * Collapses intra-token newlines before splitting so that multi-line
+ * PDF cells (e.g. "had lost\ncontact with; lost touch") are handled
+ * correctly for inline delimiters.
+ *
+ * For newline-based splitting we do NOT collapse first — the newline IS
+ * the delimiter and must be preserved until we split on it.
+ *
+ * @param text - Input string.
+ * @param delimiter - Delimiter string or regex.
+ * @param collapseNewlines - Whether to collapse newlines before splitting.
+ * @returns Array of clean tokens.
+ */
+function splitOn(text: string, delimiter: string | RegExp, collapseNewlines = true,): string[] {
+    const normalised = collapseNewlines ? text.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ') : text;
+    return normalised
+        .split(delimiter)
+        .map(normaliseToken)
+        .filter(Boolean);
+}
+
+/**
+ * Returns true when every token looks like a plausible KWT answer:
+ * non-empty and at most 8 words (gap answers are never longer).
+ *
+ * @param tokens - Candidate token array.
+ */
+function allPlausible(tokens: string[]): boolean {
+    return tokens.every((t) => t.length > 0 && t.split(/\s+/).length <= 8);
+}
+
 const STRATEGIES: Strategy[] = [// ── 1. Semicolons ────────────────────────────────────────────────
-    // Most common in teacher-prepared lists; collapses intra-token newlines
-    // so "had lost\ncontact with; lost touch" works correctly.
+    // Works both inline ("a; b; c") and per-line ("a;\nb;\nc").
+    // Intra-token newlines are collapsed so PDF word-wrapped cells work.
     (text) => {
         if (!text.includes(';')) return null;
-        return text
-            .split(';')
-            .map(normaliseToken)
-            .filter(Boolean);
+        return splitOn(text, ';');
     },
 
-    // ── 2. Pipe characters ───────────────────────────────────────────
+    // ── 2. Pipe  ─────────────────────────────────────────────────────
     (text) => {
         if (!text.includes('|')) return null;
-        return text.split('|').map(normaliseToken).filter(Boolean);
+        return splitOn(text, /\s*\|\s*/);
     },
 
-    // ── 3. Numbered list ─────────────────────────────────────────────
-    // Matches: "1. answer", "1) answer", "(1) answer", "1: answer"
-    // Every non-empty line must start with a number marker.
+    // ── 3. Slash  ────────────────────────────────────────────────────
+    (text) => {
+        if (!text.includes('/')) return null;
+        const tokens = splitOn(text, /\s*\/\s*/);
+        // Guard: reject if it looks like a URL or date ("2024/01/01").
+        if (tokens.some((t) => /^\d+$/.test(t))) return null;
+        return tokens;
+    },
+
+    // ── 4. Numbered list ─────────────────────────────────────────────
+    // "1. ans", "1) ans", "(1) ans", "1: ans"
     (text) => {
         const lines = text.split(/\r?\n/).map(normaliseToken).filter(Boolean);
         if (lines.length < 2) return null;
@@ -53,34 +103,38 @@ const STRATEGIES: Strategy[] = [// ── 1. Semicolons ────────
         return lines.map((l) => l.replace(marker, '').trim()).filter(Boolean);
     },
 
-    // ── 4. Letter list ───────────────────────────────────────────────
-    // Matches: "a) answer", "a. answer", "(a) answer"
+    // ── 5. Letter list ───────────────────────────────────────────────
+    // "a) ans", "a. ans", "(a) ans"
     (text) => {
         const lines = text.split(/\r?\n/).map(normaliseToken).filter(Boolean);
         if (lines.length < 2) return null;
-        const marker = /^(?:\([a-zA-Z]\)|[a-zA-Z][.):])\s*/;
+        const marker = /^(?:\([a-zA-Z]\)|[a-zA-Z][.):])[\s]*/;
         if (!lines.every((l) => marker.test(l))) return null;
         return lines.map((l) => l.replace(marker, '').trim()).filter(Boolean);
     },
 
-    // ── 5. Comma-separated — only when each token is multi-word ─────
-    // Avoids false positives from answers that naturally contain commas
-    // (e.g. "however, he decided"). Only fires when all tokens are ≥ 2 words
-    // AND there are no semicolons/pipes (already handled above).
+    // ── 6. Commas ────────────────────────────────────────────────────
+    // Handles both inline ("a, b, c") and per-line ("a,\nb,\nc,").
+    // normaliseToken already strips trailing commas, so per-line works
+    // via the newline strategy below — this handles the inline case.
+    // Guard: every token must be ≤ 8 words (avoids splitting prose sentences
+    // like "however, he decided to leave" into bogus answers).
     (text) => {
-        if (!text.includes(',') || text.includes('\n')) return null;
-        const tokens = text.split(',').map(normaliseToken).filter(Boolean);
+        if (!text.includes(',')) return null;
+        const tokens = splitOn(text, ',');
         if (tokens.length < 2) return null;
-        // Require every token to be a phrase (≥ 2 words) to avoid splitting
-        // single answers that happen to contain a comma.
-        if (!tokens.every((t) => t.split(/\s+/).length >= 2)) return null;
+        if (!allPlausible(tokens)) return null;
         return tokens;
     },
 
-    // ── 6. Plain newlines ────────────────────────────────────────────
-    // Last resort: two or more non-empty lines → each is a separate answer.
+    // ── 7. Plain newlines ────────────────────────────────────────────
+    // Each non-empty line is one answer. normaliseToken strips trailing
+    // `,;/` so "ans1,\nans2," → ["ans1", "ans2"].
     (text) => {
-        const lines = text.split(/\r?\n/).map(normaliseToken).filter(Boolean);
+        const lines = text
+            .split(/\r?\n/)
+            .map(normaliseToken)
+            .filter(Boolean);
         if (lines.length < 2) return null;
         return lines;
     },];
