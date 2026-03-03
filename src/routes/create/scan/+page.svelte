@@ -5,26 +5,26 @@
      * Supports three input methods:
      *  1. Drag & drop a file onto the drop zone.
      *  2. Click "Browse files" and pick a file from disk.
-     *  3. Ctrl+V anywhere on the page — pastes a clipboard image directly,
-     *     or (if the clipboard contains plain text) sends it straight to the
-     *     parser without going through OCR at all.
+     *  3. Ctrl+V anywhere on the page:
+     *     - clipboard image → stored as the selected file, then OCR'd normally.
+     *     - clipboard text  → parsed immediately client-side, skip OCR.
      */
 
     import {goto} from '$app/navigation';
     import {reviewState} from '$lib/store.svelte.js';
     import {t} from '$lib/i18n.svelte.js';
+    import {parseQuestions} from '$lib/parser.js';
     import type {UploadResponse} from '$lib/types.js';
     import {
         CircleNotchIcon,
-        CloudArrowUpIcon,
         ClipboardIcon,
+        CloudArrowUpIcon,
         FilePdfIcon,
         ImageIcon,
         MagnifyingGlassIcon,
         WarningCircleIcon,
         XIcon,
     } from 'phosphor-svelte';
-    import {parseQuestions} from '$lib/parser.js';
 
     const MAX_MB = 20;
     const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -33,8 +33,7 @@
     let isProcessing = $state(false);
     let errorMessage = $state('');
     let selectedFile = $state<File | null>(null);
-
-    /** True when the selected "file" came from a clipboard paste (image). */
+    /** True when the selected file came from a clipboard image paste. */
     let pastedImage = $state(false);
 
     /**
@@ -42,7 +41,7 @@
      *
      * @param file - The file from the input or drop event.
      */
-    function handleFile(file: File) {
+    function handleFile(file: File): void {
         errorMessage = '';
         if (!ACCEPTED.includes(file.type)) {
             errorMessage = t('scan.errorType');
@@ -56,22 +55,22 @@
         pastedImage = false;
     }
 
-    function onInput(e: Event) {
+    function onInput(e: Event): void {
         const f = (e.target as HTMLInputElement).files?.[0];
         if (f) handleFile(f);
         (e.target as HTMLInputElement).value = '';
     }
 
-    function onDragOver(e: DragEvent) {
+    function onDragOver(e: DragEvent): void {
         e.preventDefault();
         isDragging = true;
     }
 
-    function onDragLeave() {
+    function onDragLeave(): void {
         isDragging = false;
     }
 
-    function onDrop(e: DragEvent) {
+    function onDrop(e: DragEvent): void {
         e.preventDefault();
         isDragging = false;
         const f = e.dataTransfer?.files[0];
@@ -79,24 +78,22 @@
     }
 
     /**
-     * Handles Ctrl+V / paste events anywhere on the page.
+     * Global Ctrl+V handler. Two paths:
+     *  - Image in clipboard → store as `selectedFile`; user clicks "Detect".
+     *  - Plain text in clipboard → run client-side parser immediately and
+     *    navigate to /review without any server round-trip.
      *
-     * Two cases:
-     *  - Clipboard contains an image → treat it like a file upload; store it
-     *    as the selected file and let the user click "Detect questions".
-     *  - Clipboard contains plain text → skip OCR entirely, run the client-
-     *    side parser immediately and navigate to /review.
+     * Pastes that originate inside an input or textarea are ignored.
      *
-     * @param e - The global paste event.
+     * @param e - The window-level ClipboardEvent.
      */
-    async function onGlobalPaste(e: ClipboardEvent) {
-        // Don't intercept pastes inside inputs/textareas.
+    async function onGlobalPaste(e: ClipboardEvent): Promise<void> {
         const tag = (e.target as HTMLElement).tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
         errorMessage = '';
 
-        // ── Image in clipboard ──────────────────────────────────────────
+        // ── Image ───────────────────────────────────────────────────────
         const imageItem = Array.from(e.clipboardData?.items ?? []).find(
             (item) => item.type.startsWith('image/'),
         );
@@ -108,7 +105,7 @@
             return;
         }
 
-        // ── Plain text in clipboard ─────────────────────────────────────
+        // ── Plain text ──────────────────────────────────────────────────
         const text = e.clipboardData?.getData('text/plain') ?? '';
         if (!text.trim()) return;
 
@@ -142,10 +139,8 @@
         return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
     }
 
-    /**
-     * Uploads the file, runs OCR, then navigates to /review.
-     */
-    async function process() {
+    /** Uploads the selected file, runs OCR, then navigates to /review. */
+    async function process(): Promise<void> {
         if (!selectedFile) return;
         isProcessing = true;
         errorMessage = '';
@@ -158,7 +153,10 @@
 
             if (!res.ok) {
                 let message = 'Upload failed.';
-                try { message = (await res.json()).error ?? message; } catch { /* non-JSON */ }
+                try {
+                    message = (await res.json()).error ?? message;
+                } catch { /* non-JSON */
+                }
                 errorMessage = message;
                 return;
             }
@@ -195,11 +193,13 @@
     <h1>{t('scan.title')}</h1>
     <p class="subtitle">{t('scan.subtitle')}</p>
 
-    <!-- Paste hint banner -->
     {#if !selectedFile && !isProcessing}
         <div class="paste-hint">
-            <ClipboardIcon size={15} weight="bold"/>
-            Wklej screenshot lub tekst z pytaniami przez <kbd>Ctrl+V</kbd> — zestaw zostanie wykryty automatycznie.
+            <ClipboardIcon size={14} weight="bold" class="paste-icon"/>
+            <span>
+                Wklej <kbd>Ctrl+V</kbd> screenshot lub skopiowany tekst z pytaniami
+                — zestaw zostanie wykryty automatycznie.
+            </span>
         </div>
     {/if}
 
@@ -240,7 +240,7 @@
             </div>
         {:else}
             <div class="drop-hint">
-                <CloudArrowUpIcon size={48} weight="light" class="drop-icon"/>
+                <CloudArrowUpIcon size={48} weight="light"/>
                 <p><strong>{t('scan.dropHint')}</strong></p>
                 <p class="or">{t('scan.or')}</p>
                 <label class="pick-btn btn-primary" for="fi">{t('scan.browse')}</label>
@@ -249,9 +249,16 @@
         <input id="fi" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" hidden onchange={onInput}/>
     </div>
 
+    {#if isProcessing && !selectedFile}
+        <div class="processing-text">
+            <CircleNotchIcon size={16} weight="bold" class="spin"/>
+            Analizuję tekst…
+        </div>
+    {/if}
+
     {#if errorMessage}
         <div class="error-banner" role="alert">
-            <WarningCircleIcon size={16} weight="bold" class="err-icon"/>
+            <WarningCircleIcon size={16} weight="bold"/>
             <span>{errorMessage}</span>
         </div>
     {/if}
@@ -262,7 +269,7 @@
                 disabled={!selectedFile || isProcessing}
                 onclick={process}
         >
-            {#if isProcessing}
+            {#if isProcessing && selectedFile}
                 <CircleNotchIcon size={18} weight="bold" class="spin"/> {t('scan.processing')}
             {:else}
                 <MagnifyingGlassIcon size={18} weight="regular"/> {t('scan.process')}
@@ -294,7 +301,7 @@
     /* ── Paste hint ───────────────────────────────────────────────────── */
     .paste-hint {
         display: flex;
-        align-items: center;
+        align-items: baseline;
         gap: var(--space-2);
         background: var(--color-primary-light);
         color: var(--color-primary);
@@ -303,6 +310,13 @@
         padding: var(--space-3) var(--space-4);
         font-size: var(--font-size-sm);
         font-weight: var(--font-weight-medium);
+        line-height: var(--line-height-snug);
+    }
+
+    :global(.paste-icon) {
+        flex-shrink: 0;
+        position: relative;
+        top: 2px;
     }
 
     kbd {
@@ -310,11 +324,12 @@
         background: var(--color-surface);
         border: 1px solid var(--color-primary-muted);
         border-radius: var(--radius-sm);
-        padding: 1px 6px;
+        padding: 0 5px;
         font-family: var(--font-mono), monospace;
-        font-size: var(--font-size-xs);
+        font-size: 0.8em;
         font-weight: var(--font-weight-bold);
         box-shadow: 0 1px 0 var(--color-primary-muted);
+        vertical-align: baseline;
     }
 
     /* ── Drop zone ────────────────────────────────────────────────────── */
@@ -399,6 +414,15 @@
         flex-shrink: 0;
     }
 
+    /* ── Processing text (for text-paste path) ────────────────────────── */
+    .processing-text {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+    }
+
     /* ── Error banner ─────────────────────────────────────────────────── */
     .error-banner {
         display: flex;
@@ -411,11 +435,6 @@
         padding: var(--space-3) var(--space-4);
         font-size: var(--font-size-sm);
         line-height: var(--line-height-snug);
-    }
-
-    :global(.err-icon) {
-        flex-shrink: 0;
-        margin-top: 2px;
     }
 
     /* ── Actions ──────────────────────────────────────────────────────── */
@@ -437,6 +456,8 @@
     }
 
     @keyframes spin {
-        to { transform: rotate(360deg); }
+        to {
+            transform: rotate(360deg);
+        }
     }
 </style>

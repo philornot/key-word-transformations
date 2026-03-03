@@ -1,5 +1,5 @@
 /**
- * @fileoverview KWT-tuned heuristic parser for OCR output.
+ * @fileoverview KWT-tuned heuristic parser for OCR output and pasted plain text.
  *
  * Handles both simple numbering ("1.") and compound numbering ("9.1.")
  * as used in Polish matura exam sheets.
@@ -11,10 +11,12 @@
  *        KEYWORD
  *        <sentence2 — may span multiple lines, may or may not contain gap>
  *
- * We split on the keyword line, not on the gap line.  If a gap marker
- * exists in sentence2 we normalise it; if it doesn't (Tesseract skipped
- * the physical underline), we insert a canonical gap at the first
+ * We split on the keyword line. If a gap marker exists in sentence2 we
+ * normalise it; if it doesn't, we insert a canonical gap at the first
  * plausible break point so the editor shows something the user can fix.
+ *
+ * This module contains no Node.js imports and is safe to use in both
+ * server-side and client-side (browser) contexts.
  */
 
 import type {ParsedKWTQuestion} from './types.js';
@@ -27,12 +29,17 @@ import {CANONICAL_GAP} from './constants.js';
  */
 const QUESTION_START_RE = /^\s*(\d+(?:[.]\d+)*[.)]\s?)\s*(.*)/;
 
-/** A standalone keyword line: single word, all uppercase, 2–20 chars. */
-const KEYWORD_RE = /^[A-Z]{2,20}$/;
+/**
+ * A standalone keyword line: a single word, 2–20 letters, ALL-CAPS or
+ * title-cased (e.g. "SO", "LOST", "So"). OCR sometimes down-cases the
+ * keyword, so we accept any-case single word here and uppercase it later.
+ */
+const KEYWORD_RE = /^[A-Za-z]{2,20}$/;
 
 /**
- * Visual gap representations produced by scanners / Tesseract:
- *  - 3+ underscores
+ * Visual gap representations produced by scanners / Tesseract or copy-pasted
+ * from PDF/Word documents:
+ *  - 3+ underscores   (most common)
  *  - repeated em/en dashes
  *  - 4+ regular hyphens (Tesseract artefact)
  *  - 5+ dots
@@ -46,12 +53,9 @@ const GAP_RE = /_{3,}|—{2,}|-{4,}|\.{5,}/g;
 /**
  * Common single-character substitution errors produced by Tesseract
  * when scanning serif fonts.
- *
- * `|` → `I` is applied only when the pipe stands alone as a word
- * (surrounded by whitespace or at line boundaries) so we never corrupt
- * legitimate pipe characters in other contexts.
  */
-const CHAR_FIXES: Array<[RegExp, string]> = [[/(?<!\w)\|(?!\w)/g, 'I'],];
+const CHAR_FIXES: Array<[RegExp, string]> = [// Lone pipe → capital I (only when surrounded by whitespace / line edges).
+    [/(?<!\w)\|(?!\w)/g, 'I'],];
 
 /**
  * Cleans up common Tesseract character-recognition errors in raw OCR text.
@@ -72,9 +76,11 @@ function fixOcrArtefacts(text: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Parses raw OCR text into KWT question drafts.
+ * Parses raw OCR text or pasted plain text into KWT question drafts.
  *
- * @param rawText - Plain text string from Tesseract or pdf-parse.
+ * Safe to call in browser context (no Node.js APIs used).
+ *
+ * @param rawText - Plain text string from Tesseract, pdf-parse, or clipboard.
  * @returns Array of partially-filled {@link ParsedKWTQuestion} objects.
  */
 export function parseQuestions(rawText: string): ParsedKWTQuestion[] {
@@ -98,7 +104,7 @@ export function parseQuestions(rawText: string): ParsedKWTQuestion[] {
 /**
  * Groups lines into per-question blocks delimited by numbered question starts.
  *
- * @param lines - Trimmed, non-empty lines from OCR output.
+ * @param lines - Trimmed, non-empty lines from the source text.
  * @returns Array of line groups, one per question.
  */
 function splitIntoBlocks(lines: string[]): string[][] {
@@ -120,23 +126,19 @@ function splitIntoBlocks(lines: string[]): string[][] {
 /**
  * Converts one block of lines into a {@link ParsedKWTQuestion}.
  *
- * The split strategy is based on the keyword line, not the gap line:
+ * Strategy:
+ *  - Find the first line that looks like a standalone keyword (KEYWORD_RE).
+ *  - Lines before it → sentence1 (joined with spaces).
+ *  - Lines after it  → sentence2 (joined with spaces).
+ *  - Normalise any gap marker in sentence2 to `______`.
+ *  - If no gap is found, insert a fallback gap so the editor always has
+ *    something to show.
  *
- *  - Lines BEFORE the keyword → sentence1 (joined with spaces).
- *  - Lines AFTER the keyword  → sentence2 (joined with spaces).
- *
- * Within sentence2 we then look for a gap marker and normalise it to
- * `______`.  If no gap marker is found (Tesseract treated the physical
- * underline as whitespace and dropped it), we insert `______` at the
- * first sentence boundary — either just before a word that starts a new
- * clause, or at the end — so the editor always has a gap to show.
- *
- * `minWords` and `maxWords` are intentionally left at 0 (no limit) because
- * OCR cannot infer the intended word count from the source document.
- * The editor allows the teacher to fill these in manually.
+ * `minWords` and `maxWords` are left at 0 because the parser cannot infer
+ * the intended word count from the source document.
  *
  * @param block - Lines belonging to one numbered question.
- * @returns Parsed question draft with empty answer arrays and no word limit.
+ * @returns Parsed question draft.
  */
 function parseBlock(block: string[]): ParsedKWTQuestion {
     const firstMatch = block[0].match(QUESTION_START_RE);
@@ -144,7 +146,6 @@ function parseBlock(block: string[]): ParsedKWTQuestion {
 
     const allLines = [afterNumber, ...block.slice(1)].filter((l) => l.length > 0);
 
-    // Find the index of the keyword line.
     const kwIdx = allLines.findIndex((l) => KEYWORD_RE.test(l));
 
     let keyword = '';
@@ -152,31 +153,26 @@ function parseBlock(block: string[]): ParsedKWTQuestion {
     let s2Lines: string[];
 
     if (kwIdx === -1) {
-        // No keyword found — put everything in sentence1, leave sentence2 blank.
         keyword = '';
         s1Lines = allLines;
         s2Lines = [];
     } else {
-        keyword = allLines[kwIdx];
+        // Always uppercase the keyword — OCR may have returned it in any case.
+        keyword = allLines[kwIdx].toUpperCase();
         s1Lines = allLines.slice(0, kwIdx);
         s2Lines = allLines.slice(kwIdx + 1);
     }
 
     const sentence1 = s1Lines.join(' ').trim();
 
-    // Build sentence2 and normalise gap markers.
     const rawS2 = s2Lines.join(' ').trim();
     const hasGap = GAP_RE.test(rawS2);
 
     let sentence2WithGap: string;
 
     if (hasGap) {
-        // Normalise all gap representations to the canonical marker.
         sentence2WithGap = rawS2.replace(GAP_RE, CANONICAL_GAP).trim();
     } else if (rawS2.length > 0) {
-        // Tesseract dropped the physical underline entirely.
-        // Insert the gap at the most natural break point so the user has
-        // something to work with in the editor.
         sentence2WithGap = insertFallbackGap(rawS2);
     } else {
         sentence2WithGap = '';
@@ -197,28 +193,21 @@ function parseBlock(block: string[]): ParsedKWTQuestion {
 /**
  * Inserts a canonical gap into a sentence2 string that contains no gap marker.
  *
- * Heuristic: find the longest run of whitespace-separated words that
- * looks like a "stem" (the part before the blank) by searching for a
- * sentence-internal boundary such as a comma, dash, or a word that
- * immediately follows an auxiliary verb pattern.  Falls back to inserting
- * the gap after the first word cluster (up to 4 words) so there is always
- * visible content on both sides of the gap.
+ * Heuristic: split at the first sentence-internal dash or comma; fall back
+ * to inserting after the first 3–4 words.
  *
  * @param s - Raw sentence2 string with no gap marker.
  * @returns Sentence2 string with `______` inserted.
  */
 function insertFallbackGap(s: string): string {
-    // Try to split at a sentence-internal dash or comma which often marks
-    // the boundary between the stem and the gap in matura sentences.
     const dashMatch = s.match(/^(.+?[,–—])\s+(.+)$/);
     if (dashMatch) {
         return `${dashMatch[1].trim()} ${CANONICAL_GAP} ${dashMatch[2].trim()}`.trim();
     }
 
-    // Fall back: insert after the first 3–4 words.
     const words = s.split(/\s+/);
     const pivot = Math.min(4, Math.max(1, Math.floor(words.length / 2)));
-    return [words.slice(0, pivot).join(' '), CANONICAL_GAP, words.slice(pivot).join(' '),]
+    return [words.slice(0, pivot).join(' '), CANONICAL_GAP, words.slice(pivot).join(' ')]
         .filter(Boolean)
         .join(' ');
 }
