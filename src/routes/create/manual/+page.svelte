@@ -85,7 +85,9 @@
         questions.every((q) => questionError(q) === null),
     );
 
-    /** Publishes the set and redirects to the live URL. */
+    /**
+     * Publishes the set and redirects to the live URL.
+     */
     async function publish() {
         submitAttempted = true;
         if (!isValid) return;
@@ -110,12 +112,15 @@
                     })),
                 }),
             });
+
+            const data = await res.json();
+
             if (!res.ok) {
-                const {error} = await res.json();
-                throw new Error(error ?? 'Failed.'); // todo: 'throw' of exception caught locally
+                errorMessage = data.error ?? 'Failed.';
+                return;
             }
-            const {slug} = await res.json();
-            goto(`/set/${slug}`);
+
+            goto(`/set/${data.slug}`);
         } catch (err) {
             errorMessage = err instanceof Error ? err.message : 'Unknown error.';
         } finally {
