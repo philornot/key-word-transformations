@@ -6,8 +6,9 @@
 
     import {t} from '$lib/i18n.svelte.js';
     import type {ParsedKWTQuestion} from '$lib/types.js';
-    import {PlusIcon, WarningCircleIcon, XSquare} from 'phosphor-svelte';
+    import {WarningCircleIcon, XSquare} from 'phosphor-svelte';
     import {CANONICAL_GAP} from '$lib/constants.js';
+    import AnswersBlock from '$lib/components/AnswersBlock.svelte';
 
     interface Props {
         question: ParsedKWTQuestion;
@@ -21,36 +22,32 @@
 
     const GAP = '______';
 
-    let newAltAnswer = $state('');
-    let newWrongAnswer = $state('');
-
     /**
      * Uppercases and strips non-alpha characters from keyword input.
      *
      * @param e - Native input event.
      */
-    function onKeywordInput(e: Event) {
+    function onKeywordInput(e: Event): void {
         const raw = (e.currentTarget as HTMLInputElement).value;
         question.keyword = raw.toUpperCase().replace(/[^A-Z]/g, '');
     }
 
     /**
      * Normalises the sentence2 textarea value on every keystroke:
-     *  - Any run of one or more underscores is replaced with the canonical
-     *    six-underscore gap marker `______`.
+     *  - Any run of underscores is replaced with the canonical six-underscore
+     *    gap marker `______`.
      *  - Cursor position is preserved so typing feels natural.
      *
      * @param e - Native input event from the sentence2 textarea.
      */
-    function onGapInput(e: Event) {
+    function onGapInput(e: Event): void {
         const el = e.currentTarget as HTMLTextAreaElement;
         const raw = el.value;
         const cursorBefore = raw.slice(0, el.selectionStart ?? 0);
 
-        const normalised = raw.replace(/_+/g, (match) => {
-            if (match.length < 6) return match.length === 1 ? CANONICAL_GAP : '';
-            return CANONICAL_GAP;
-        });
+        const normalised = raw.replace(/_+/g, (match) =>
+            match.length === 1 ? CANONICAL_GAP : match.length < 6 ? '' : CANONICAL_GAP,
+        );
 
         if (normalised === raw) {
             question.sentence2WithGap = raw;
@@ -59,10 +56,9 @@
 
         question.sentence2WithGap = normalised;
 
-        const normBefore = cursorBefore.replace(/_+/g, (match) => {
-            if (match.length < 6) return match.length === 1 ? CANONICAL_GAP : '';
-            return CANONICAL_GAP;
-        });
+        const normBefore = cursorBefore.replace(/_+/g, (match) =>
+            match.length === 1 ? CANONICAL_GAP : match.length < 6 ? '' : CANONICAL_GAP,
+        );
 
         requestAnimationFrame(() => {
             el.selectionStart = el.selectionEnd = normBefore.length;
@@ -74,7 +70,7 @@
      *
      * @param el - The textarea DOM element.
      */
-    function insertGap(el: HTMLTextAreaElement) {
+    function insertGap(el: HTMLTextAreaElement): void {
         const s = el.selectionStart ?? el.value.length;
         const e = el.selectionEnd ?? el.value.length;
         question.sentence2WithGap = el.value.slice(0, s) + GAP + el.value.slice(e);
@@ -85,40 +81,9 @@
     }
 
     /** Retrieves the sentence2 textarea by index and delegates to {@link insertGap}. */
-    function handleInsertGap() {
+    function handleInsertGap(): void {
         const el = document.getElementById(`s2-${index}`);
         if (el instanceof HTMLTextAreaElement) insertGap(el);
-    }
-
-    /** Appends a trimmed non-empty string to the alternative answers list. */
-    function addAltAnswer() {
-        const val = newAltAnswer.trim();
-        if (val) {
-            question.alternativeAnswers.push(val);
-            newAltAnswer = '';
-        }
-    }
-
-    /** Appends a trimmed non-empty string to the wrong answers list. */
-    function addWrongAnswer() {
-        const val = newWrongAnswer.trim();
-        if (val) {
-            question.exampleWrongAnswers.push(val);
-            newWrongAnswer = '';
-        }
-    }
-
-    /**
-     * Handles Enter key in the "add answer" inputs.
-     *
-     * @param e - Keyboard event.
-     * @param handler - The add function to call on Enter.
-     */
-    function onAnswerKeydown(e: KeyboardEvent, handler: () => void) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            handler();
-        }
     }
 
     // ── Word range ──────────────────────────────────────────────────────
@@ -126,14 +91,14 @@
     /**
      * Formats minWords / maxWords into the single-field display string.
      *
-     * Conventions used by this component:
+     * Conventions:
      *   0 / 0  → ''     (no limit)
      *   0 / 5  → '5'    (max only)
      *   2 / 5  → '2–5'  (explicit range)
      *   n / n  → 'n'    (min === max → single number)
      *
-     * @param min - Minimum word count; 0 means no minimum.
-     * @param max - Maximum word count; 0 means no maximum.
+     * @param min - Minimum word count (0 = no minimum).
+     * @param max - Maximum word count (0 = no maximum).
      * @returns Human-readable string for the text input.
      */
     function formatWordRange(min: number, max: number): string {
@@ -143,26 +108,14 @@
     }
 
     /**
-     * Parses the word-range text field and writes the result back to the
-     * question object. Accepted formats:
-     *   ''       → minWords = 0, maxWords = 0  (no limit)
-     *   '5'      → minWords = 0, maxWords = 5  (max only)
-     *   '2-5'    → minWords = 2, maxWords = 5
-     *   '2–5'    → same (en-dash variant)
-     *
-     * Invalid or out-of-range input is silently ignored — the previous
-     * values are kept and the display is normalised on blur.
+     * Parses the word-range field and writes back to the question object.
+     * Accepted formats: '', '5', '2-5', '2–5'. Invalid input is ignored.
      *
      * @param raw - Raw string value from the input element.
      */
     function applyWordRange(raw: string): void {
         const val = raw.trim();
-
-        if (!val) {
-            question.minWords = 0;
-            question.maxWords = 0;
-            return;
-        }
+        if (!val) { question.minWords = 0; question.maxWords = 0; return; }
 
         const rangeMatch = val.match(/^(\d+)\s*[-–]\s*(\d+)$/);
         if (rangeMatch) {
@@ -182,7 +135,6 @@
         }
     }
 
-    /** Local display value; kept in sync with the question object. */
     let wordRangeValue = $state(formatWordRange(question.minWords, question.maxWords));
 
     /**
@@ -195,10 +147,7 @@
         applyWordRange(wordRangeValue);
     }
 
-    /**
-     * Normalises the displayed string on blur (e.g. "2-5" → "2–5")
-     * and fires the touch callback.
-     */
+    /** Normalises the displayed string on blur and fires the touch callback. */
     function onWordRangeBlur(): void {
         wordRangeValue = formatWordRange(question.minWords, question.maxWords);
         onTouch?.();
@@ -209,9 +158,9 @@
     <div class="q-header">
         <span class="q-num">{t('review.questionNum', {n: index + 1})}</span>
         {#if error}
-      <span class="q-err">
-        <WarningCircleIcon size={13} weight="bold"/> {error}
-      </span>
+            <span class="q-err">
+                <WarningCircleIcon size={13} weight="bold"/> {error}
+            </span>
         {/if}
         <button
                 class="btn-danger rm-btn"
@@ -222,7 +171,6 @@
         </button>
     </div>
 
-    <!-- Sentence 1 -->
     <label class="field-label" for="s1-{index}">{t('review.sentence1')}</label>
     <textarea
             id="s1-{index}"
@@ -233,7 +181,6 @@
             onblur={() => onTouch?.()}
     ></textarea>
 
-    <!-- Keyword -->
     <label class="field-label" for="kw-{index}">{t('review.keyword')}</label>
     <input
             id="kw-{index}"
@@ -245,21 +192,20 @@
             onblur={() => onTouch?.()}
     />
 
-    <!-- Sentence 2 -->
     <label class="field-label" for="s2-{index}">
         {t('review.sentence2')}
         <span class="gap-hint">— wpisz <code>_</code> żeby wstawić lukę</span>
     </label>
     <div class="s2-wrap">
-    <textarea
-            id="s2-{index}"
-            class="text-input gap-textarea"
-            rows="2"
-            value={question.sentence2WithGap}
-            oninput={onGapInput}
-            placeholder={t('review.sentence2ph')}
-            onblur={() => onTouch?.()}
-    ></textarea>
+        <textarea
+                id="s2-{index}"
+                class="text-input gap-textarea"
+                rows="2"
+                value={question.sentence2WithGap}
+                oninput={onGapInput}
+                placeholder={t('review.sentence2ph')}
+                onblur={() => onTouch?.()}
+        ></textarea>
         <button
                 type="button"
                 class="btn-ghost insert-gap-btn"
@@ -270,7 +216,6 @@
         </button>
     </div>
 
-    <!-- Primary answer + word range -->
     <div class="bottom-row">
         <div class="answer-field">
             <label class="field-label" for="ans-{index}">{t('review.answer')}</label>
@@ -284,7 +229,6 @@
             />
         </div>
 
-        <!-- Word range: single text input -->
         <div class="word-range-field">
             <label class="field-label" for="wr-{index}">{t('review.wordRange')}</label>
             <input
@@ -301,71 +245,25 @@
         </div>
     </div>
 
-    <!-- Alternative correct answers -->
-    <div class="answers-block">
-        <span class="field-label">{t('review.alternativeAnswers')}</span>
-        {#if question.alternativeAnswers.length > 0}
-            <div class="chip-list">
-                {#each question.alternativeAnswers as ans, i}
-          <span class="chip chip-ok">
-            {ans}
-              <button
-                      class="chip-rm"
-                      type="button"
-                      aria-label="{t('common.remove')} {ans}"
-                      onclick={() => question.alternativeAnswers.splice(i, 1)}
-              ><XSquare size={11} weight="bold"/></button>
-          </span>
-                {/each}
-            </div>
-        {/if}
-        <div class="add-answer-row">
-            <input
-                    class="text-input add-input"
-                    type="text"
-                    bind:value={newAltAnswer}
-                    placeholder={t('review.altAnswerPh')}
-                    onkeydown={(e) => onAnswerKeydown(e, addAltAnswer)}
-                    onblur={() => onTouch?.()}
-            />
-            <button type="button" class="btn-ghost add-chip-btn" onclick={addAltAnswer}>
-                <PlusIcon size={13} weight="bold"/> {t('review.addAnswerBtn')}
-            </button>
-        </div>
-    </div>
+    <AnswersBlock
+            bind:answers={question.alternativeAnswers}
+            label={t('review.alternativeAnswers')}
+            variant="alt"
+            addPlaceholder={t('review.altAnswerPh')}
+            importPlaceholder="np. so loud outside that; (very) noisy outside so, so noisy outside so"
+            chipVariant="ok"
+            {onTouch}
+    />
 
-    <!-- Example wrong answers -->
-    <div class="answers-block">
-        <span class="field-label">{t('review.exampleWrongAnswers')}</span>
-        {#if question.exampleWrongAnswers.length > 0}
-            <div class="chip-list">
-                {#each question.exampleWrongAnswers as ans, i}
-          <span class="chip chip-err">
-            {ans}
-              <button
-                      class="chip-rm"
-                      type="button"
-                      aria-label="{t('common.remove')} {ans}"
-                      onclick={() => question.exampleWrongAnswers.splice(i, 1)}
-              ><XSquare size={11} weight="bold"/></button>
-          </span>
-                {/each}
-            </div>
-        {/if}
-        <div class="add-answer-row">
-            <input
-                    class="text-input add-input"
-                    type="text"
-                    bind:value={newWrongAnswer}
-                    placeholder={t('review.wrongAnswerPh')}
-                    onkeydown={(e) => onAnswerKeydown(e, addWrongAnswer)}
-                    onblur={() => onTouch?.()}
-            />
-            <button type="button" class="btn-ghost add-chip-btn" onclick={addWrongAnswer}>
-                <PlusIcon size={13} weight="bold"/> {t('review.addAnswerBtn')}
-            </button>
-        </div>
-    </div>
+    <AnswersBlock
+            bind:answers={question.exampleWrongAnswers}
+            label={t('review.exampleWrongAnswers')}
+            variant="wrong"
+            addPlaceholder={t('review.wrongAnswerPh')}
+            importPlaceholder="np. have lost touch with; lost touch; had lost contact with; lost contact to"
+            chipVariant="err"
+            {onTouch}
+    />
 </div>
 
 <style>
@@ -454,6 +352,11 @@
         font-weight: var(--font-weight-bold);
     }
 
+    .insert-gap-btn.hidden {
+        visibility: hidden;
+        pointer-events: none;
+    }
+
     .bottom-row {
         display: flex;
         gap: var(--space-4);
@@ -469,7 +372,6 @@
         gap: var(--space-1);
     }
 
-    /* ── Word range single input ──────────────────────────────────────── */
     .word-range-field {
         display: flex;
         flex-direction: column;
@@ -486,88 +388,5 @@
         font-size: var(--font-size-xs);
         color: var(--color-text-muted);
         text-align: center;
-    }
-
-    /* ── Answer chip lists ────────────────────────────────────────────── */
-    .answers-block {
-        display: flex;
-        flex-direction: column;
-        gap: var(--space-2);
-        padding: var(--space-3);
-        background: var(--color-neutral-100);
-        border-radius: var(--radius-md);
-    }
-
-    .chip-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--space-2);
-    }
-
-    .chip {
-        display: inline-flex;
-        align-items: center;
-        gap: var(--space-1);
-        padding: var(--space-1) var(--space-2);
-        border-radius: var(--radius-full);
-        font-size: var(--font-size-xs);
-        font-weight: var(--font-weight-semibold);
-    }
-
-    .chip-ok {
-        background: var(--color-success-light);
-        color: var(--color-success-dark);
-    }
-
-    .chip-err {
-        background: var(--color-danger-light);
-        color: var(--color-danger-dark);
-    }
-
-    .chip-rm {
-        background: none;
-        border: none;
-        padding: 0;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        color: inherit;
-        opacity: 0.7;
-        border-radius: 0;
-    }
-
-    .chip-rm:hover {
-        opacity: 1;
-    }
-
-    .chip-rm:active {
-        transform: none;
-    }
-
-    .add-answer-row {
-        display: flex;
-        gap: var(--space-2);
-        align-items: center;
-    }
-
-    .add-input {
-        flex: 1;
-        font-size: var(--font-size-sm);
-        padding: var(--space-1) var(--space-2);
-    }
-
-    .add-chip-btn {
-        display: flex;
-        align-items: center;
-        gap: var(--space-1);
-        padding: var(--space-1) var(--space-3);
-        font-size: var(--font-size-xs);
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-
-    .insert-gap-btn.hidden {
-        visibility: hidden;
-        pointer-events: none;
     }
 </style>
