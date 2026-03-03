@@ -2,9 +2,9 @@
     import '$lib/theme.css';
     import '$lib/global.css';
     import {locale, t} from '$lib/i18n.svelte.js';
-    import {Camera, PencilSimple, Translate} from 'phosphor-svelte';
+    import {Camera, PencilSimple, SignOut, Translate} from 'phosphor-svelte';
 
-    let {children} = $props();
+    let {children, data} = $props();
 
     function toggleLang() {
         locale.lang = locale.lang === 'pl' ? 'en' : 'pl';
@@ -25,6 +25,23 @@
             <button class="lang-btn" onclick={toggleLang} aria-label="Toggle language">
                 <Translate size={14} weight="bold"/>{t('common.langToggle')}
             </button>
+            {#if data.isAdmin}
+                <a href="/admin" class="nav-link">Panel</a>
+                <form method="POST" action="/admin?/logout">
+                    <button class="logout-btn" type="submit">
+                        <SignOut size={14} weight="bold"/>
+                        Wyloguj
+                    </button>
+                </form>
+            {/if}
+            {#if data.isAdmin}
+                <form method="POST" action="/admin?/logout">
+                    <button class="logout-btn" type="submit">
+                        <SignOut size={14} weight="bold"/>
+                        Admin
+                    </button>
+                </form>
+            {/if}
         </nav>
     </header>
 
@@ -36,6 +53,7 @@
         <p>Key word transformations</p>
     </footer>
 </div>
+
 
 <style>
     .shell {
@@ -143,5 +161,24 @@
         font-size: var(--font-size-xs);
         border-top: 1px solid var(--color-border-subtle);
         background: var(--color-surface);
+    }
+
+    .logout-btn {
+        display: flex;
+        align-items: center;
+        gap: var(--space-1);
+        padding: var(--space-1) var(--space-3);
+        border-radius: var(--radius-sm);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-bold);
+        background: var(--color-danger-light);
+        color: var(--color-danger-dark);
+        letter-spacing: var(--letter-spacing-wide);
+        border: none;
+    }
+
+    .logout-btn:hover {
+        background: var(--color-danger);
+        color: white;
     }
 </style>

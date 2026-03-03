@@ -2,6 +2,9 @@ import type {RequestHandler} from '@sveltejs/kit';
 import {error, json} from '@sveltejs/kit';
 import {db} from '$lib/server/db.js';
 import {nanoid} from 'nanoid';
+import {env} from '$env/dynamic/private';
+
+const ADMIN_COOKIE = 'kwt_admin';
 
 interface QuestionInput {
     sentence1: string;
@@ -13,7 +16,7 @@ interface QuestionInput {
     maxWords: 3 | 4 | 5;
 }
 
-export const POST: RequestHandler = async ({request}) => {
+export const POST: RequestHandler = async ({request, cookies}) => {
     let body: { title: string; sourceLabel?: string; questions: QuestionInput[] };
     try {
         body = await request.json();
@@ -36,12 +39,15 @@ export const POST: RequestHandler = async ({request}) => {
         if (![3, 4, 5].includes(q.maxWords)) throw error(400, `Q${i + 1}: maxWords must be 3, 4, or 5.`);
     }
 
+    const isAdmin = !!env.ADMIN_PASSWORD && cookies.get(ADMIN_COOKIE) === env.ADMIN_PASSWORD;
+
     const slug = nanoid(8);
 
     db.transaction(() => {
         const setResult = db
-            .prepare('INSERT INTO sets (slug, title, source_label) VALUES (?, ?, ?)')
-            .run(slug, title.trim(), sourceLabel?.trim() || null);
+            .prepare('INSERT INTO sets (slug, title, source_label, is_public) VALUES (?, ?, ?, ?)')
+            .run(slug, title.trim(), sourceLabel?.trim() || null, isAdmin ? 1 : 0);
+
         const setId = setResult.lastInsertRowid as number;
 
         const insertQuestion = db.prepare(`

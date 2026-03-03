@@ -24,6 +24,7 @@ const pl = {
         noSets: 'Nie ma jeszcze żadnych zestawów. Utwórz pierwszy!',
         solveNow: 'Rozwiąż',
         questionsCount: '{n} pyt.',
+        howItWorksTitle: 'Jak to działa?',
     }, scan: {
         title: 'Zeskanuj kartkę',
         subtitle: 'Obsługiwane formaty: JPEG, PNG, WEBP, PDF — maks. 20 MB',
@@ -124,6 +125,7 @@ const en: typeof pl = {
         noSets: 'No sets yet. Create the first one!',
         solveNow: 'Start',
         questionsCount: '{n} q.',
+        howItWorksTitle: 'How it works?',
     }, scan: {
         title: 'Scan worksheet',
         subtitle: 'Supported formats: JPEG, PNG, WEBP, PDF — max 20 MB',

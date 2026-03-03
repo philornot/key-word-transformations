@@ -27,10 +27,7 @@ export const load: PageServerLoad = ({cookies}) => {
     if (!PASSWORD) throw error(503, 'Admin access is not configured (ADMIN_PASSWORD not set).');
 
     const authenticated = isAuthenticated(cookies);
-
-    if (!authenticated) {
-        return {authenticated: false, sets: [] as SetSummary[]};
-    }
+    if (!authenticated) return {authenticated: false, sets: [] as SetSummary[]};
 
     const rows = db.prepare(`
         SELECT s.slug,
@@ -40,6 +37,7 @@ export const load: PageServerLoad = ({cookies}) => {
                COUNT(q.id) AS question_count
         FROM sets s
                  LEFT JOIN questions q ON q.set_id = s.id
+        WHERE s.is_public = 1
         GROUP BY s.id
         ORDER BY s.source_label ASC, s.created_at DESC
     `).all() as SetRow[];
@@ -56,17 +54,15 @@ export const load: PageServerLoad = ({cookies}) => {
 };
 
 export const actions: Actions = {
-
     /**
-     * Validates the submitted password and sets a session cookie on success.
+     * Validates the submitted password, sets a session cookie,
+     * and redirects back to the admin panel.
      */
     login: async ({request, cookies}: { request: Request; cookies: Cookies }) => {
         const data = await request.formData();
         const password = data.get('password')?.toString() ?? '';
 
-        if (password !== PASSWORD) {
-            return fail(401, {loginError: 'Nieprawidłowe hasło.'});
-        }
+        if (password !== PASSWORD) return fail(401, {loginError: 'Nieprawidłowe hasło.'});
 
         cookies.set(COOKIE, PASSWORD!, {
             path: '/', httpOnly: true, sameSite: 'strict', maxAge: 60 * 60 * 8,
@@ -76,7 +72,12 @@ export const actions: Actions = {
     },
 
     /**
-     * Deletes a set and all its questions, attempts and answers (CASCADE).
+     * Deletes a public set and all related data.
+     *
+     * `attempts` has no ON DELETE CASCADE on `set_id`, so we delete attempts
+     * manually first (answers cascade from there), then delete the set
+     * (questions cascade from there).
+     *
      * Requires an active admin session.
      */
     deleteSet: async ({request, cookies}: { request: Request; cookies: Cookies }) => {
@@ -84,19 +85,27 @@ export const actions: Actions = {
 
         const data = await request.formData();
         const slug = data.get('slug')?.toString() ?? '';
-
         if (!slug) return fail(400, {error: 'Missing slug.'});
 
-        db.prepare('DELETE FROM sets WHERE slug = ?').run(slug);
+        const set = db
+            .prepare('SELECT id FROM sets WHERE slug = ? AND is_public = 1')
+            .get(slug) as { id: number } | undefined;
+
+        if (!set) return fail(404, {error: 'Set not found.'});
+
+        db.transaction(() => {
+            db.prepare('DELETE FROM attempts WHERE set_id = ?').run(set.id);
+            db.prepare('DELETE FROM sets WHERE id = ?').run(set.id);
+        })();
 
         return {deleted: slug};
     },
 
     /**
-     * Clears the admin session cookie, logging the user out.
+     * Clears the admin session cookie and redirects to home.
      */
     logout: async ({cookies}: { cookies: Cookies }) => {
         cookies.delete(COOKIE, {path: '/'});
-        redirect(303, '/admin');
+        redirect(303, '/');
     },
 };
