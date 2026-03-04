@@ -2,13 +2,28 @@
     import '$lib/theme.css';
     import '$lib/global.css';
     import {locale, t} from '$lib/i18n.svelte.js';
-    import {Camera, PencilSimple, SignOut, Translate} from 'phosphor-svelte';
+    import {page} from '$app/stores';
+    import {Camera, SignOut, Translate} from 'phosphor-svelte';
+    import type {ExerciseType} from '$lib/constants.js';
 
     let {children, data} = $props();
 
     function toggleLang() {
         locale.lang = locale.lang === 'pl' ? 'en' : 'pl';
     }
+
+    /** The exercise type currently selected via the URL search param, if any. */
+    const activeType = $derived(
+        ($page.url.pathname.startsWith('/create/manual')
+            ? ($page.url.searchParams.get('type') ?? 'kwt')
+            : null) as ExerciseType | null,
+    );
+
+    const typeLinks: Array<{ type: ExerciseType; label: string }> = [
+        {type: 'kwt', label: 'KWT'},
+        {type: 'grammar', label: t('exerciseType.grammar')},
+        {type: 'translation', label: t('exerciseType.translation')},
+    ];
 </script>
 
 <div class="shell">
@@ -19,9 +34,19 @@
                 <Camera size={16} weight="regular"/>{t('nav.scan')}
                 <span class="beta-badge">{t('common.beta')}</span>
             </a>
-            <a href="/create/manual" class="nav-link nav-link--primary">
-                <PencilSimple size={16} weight="regular"/>{t('nav.manual')}
-            </a>
+
+            <!-- Exercise-type creation tabs -->
+            <div class="type-group" role="group" aria-label="Exercise type">
+                {#each typeLinks as link}
+                    <a
+                            href="/create/manual?type={link.type}"
+                            class="type-tab"
+                            class:active={activeType === link.type}
+                            aria-current={activeType === link.type ? 'page' : undefined}
+                    >{link.label}</a>
+                {/each}
+            </div>
+
             <button class="lang-btn" onclick={toggleLang} aria-label="Toggle language">
                 <Translate size={14} weight="bold"/>{t('common.langToggle')}
             </button>
@@ -31,14 +56,6 @@
                     <button class="logout-btn" type="submit">
                         <SignOut size={14} weight="bold"/>
                         Wyloguj
-                    </button>
-                </form>
-            {/if}
-            {#if data.isAdmin}
-                <form method="POST" action="/admin?/logout">
-                    <button class="logout-btn" type="submit">
-                        <SignOut size={14} weight="bold"/>
-                        Admin
                     </button>
                 </form>
             {/if}
@@ -106,17 +123,6 @@
         text-decoration: none;
     }
 
-    .nav-link--primary {
-        background: var(--color-primary);
-        color: var(--color-surface);
-        font-weight: var(--font-weight-semibold);
-    }
-
-    .nav-link--primary:hover {
-        background: var(--color-primary-hover);
-        color: var(--color-surface);
-    }
-
     .beta-badge {
         background: var(--color-warning);
         color: #fff;
@@ -129,6 +135,44 @@
         vertical-align: middle;
     }
 
+    /* ── Exercise-type tab group ─────────────────────────────────────── */
+    .type-group {
+        display: flex;
+        align-items: stretch;
+        border: 2px solid var(--color-primary);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+    }
+
+    .type-tab {
+        display: flex;
+        align-items: center;
+        padding: var(--space-1) var(--space-3);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-primary);
+        background: transparent;
+        text-decoration: none;
+        white-space: nowrap;
+        transition: background var(--transition-base), color var(--transition-base);
+        border-right: 1px solid var(--color-primary-muted);
+    }
+
+    .type-tab:last-child {
+        border-right: none;
+    }
+
+    .type-tab:hover {
+        background: var(--color-primary-light);
+        text-decoration: none;
+    }
+
+    .type-tab.active {
+        background: var(--color-primary);
+        color: var(--color-surface);
+    }
+
+    /* ── Utilities ───────────────────────────────────────────────────── */
     .lang-btn {
         display: flex;
         align-items: center;
@@ -180,5 +224,17 @@
     .logout-btn:hover {
         background: var(--color-danger);
         color: white;
+    }
+
+    @media (max-width: 640px) {
+        .type-group {
+            order: 1;
+            width: 100%;
+        }
+
+        .type-tab {
+            flex: 1;
+            justify-content: center;
+        }
     }
 </style>

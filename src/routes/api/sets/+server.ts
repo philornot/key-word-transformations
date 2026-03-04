@@ -3,6 +3,8 @@ import {error, json} from '@sveltejs/kit';
 import {db} from '$lib/server/db.js';
 import {nanoid} from 'nanoid';
 import {env} from '$env/dynamic/private';
+import type {ExerciseType} from '$lib/constants.js';
+import {EXERCISE_TYPES} from '$lib/constants.js';
 
 const ADMIN_COOKIE = 'kwt_admin';
 
@@ -20,7 +22,12 @@ interface QuestionInput {
 }
 
 export const POST: RequestHandler = async ({request, cookies}) => {
-    let body: { title: string; sourceLabel?: string; questions: QuestionInput[] };
+    let body: {
+        title: string;
+        sourceLabel?: string;
+        type?: string;
+        questions: QuestionInput[];
+    };
     try {
         body = await request.json();
     } catch {
@@ -28,6 +35,9 @@ export const POST: RequestHandler = async ({request, cookies}) => {
     }
 
     const {title, sourceLabel, questions} = body;
+    const setType: ExerciseType = (EXERCISE_TYPES.includes(body.type as ExerciseType)
+        ? body.type
+        : 'kwt') as ExerciseType;
 
     if (!title?.trim()) throw error(400, 'title is required.');
     if (!Array.isArray(questions) || questions.length === 0) {
@@ -35,10 +45,14 @@ export const POST: RequestHandler = async ({request, cookies}) => {
     }
 
     for (const [i, q] of questions.entries()) {
-        if (!q.sentence1?.trim()) throw error(400, `Q${i + 1}: sentence1 required.`);
         if (!q.sentence2WithGap?.includes('______')) throw error(400, `Q${i + 1}: sentence2WithGap must contain ______.`);
-        if (!q.keyword?.trim()) throw error(400, `Q${i + 1}: keyword required.`);
         if (!q.correctAnswer?.trim()) throw error(400, `Q${i + 1}: correctAnswer required.`);
+
+        // sentence1 and keyword are only required for KWT type.
+        if (setType === 'kwt') {
+            if (!q.sentence1?.trim()) throw error(400, `Q${i + 1}: sentence1 required.`);
+            if (!q.keyword?.trim()) throw error(400, `Q${i + 1}: keyword required.`);
+        }
 
         const maxWords = q.maxWords ?? 0;
         if (!Number.isInteger(maxWords) || maxWords < 0 || maxWords > 20) {
@@ -57,8 +71,8 @@ export const POST: RequestHandler = async ({request, cookies}) => {
 
     db.transaction(() => {
         const setResult = db
-            .prepare('INSERT INTO sets (slug, title, source_label, is_public) VALUES (?, ?, ?, ?)')
-            .run(slug, title.trim(), sourceLabel?.trim() || null, isAdmin ? 1 : 0);
+            .prepare('INSERT INTO sets (slug, title, source_label, is_public, type) VALUES (?, ?, ?, ?, ?)')
+            .run(slug, title.trim(), sourceLabel?.trim() || null, isAdmin ? 1 : 0, setType);
 
         const setId = setResult.lastInsertRowid as number;
 
@@ -70,7 +84,18 @@ export const POST: RequestHandler = async ({request, cookies}) => {
         `);
 
         for (const [i, q] of questions.entries()) {
-            insertQuestion.run(setId, i + 1, q.sentence1.trim(), q.sentence2WithGap.trim(), q.keyword.trim().toUpperCase(), q.correctAnswer.trim(), JSON.stringify((q.alternativeAnswers ?? []).map((a) => a.trim()).filter(Boolean)), JSON.stringify((q.exampleWrongAnswers ?? []).map((a) => a.trim()).filter(Boolean)), q.minWords ?? 0, q.maxWords ?? 0,);
+            insertQuestion.run(
+                setId,
+                i + 1,
+                (q.sentence1 ?? '').trim(),
+                q.sentence2WithGap.trim(),
+                (q.keyword ?? '').trim().toUpperCase(),
+                q.correctAnswer.trim(),
+                JSON.stringify((q.alternativeAnswers ?? []).map((a) => a.trim()).filter(Boolean)),
+                JSON.stringify((q.exampleWrongAnswers ?? []).map((a) => a.trim()).filter(Boolean)),
+                q.minWords ?? 0,
+                q.maxWords ?? 0,
+            );
         }
     })();
 

@@ -2,11 +2,15 @@ import type {PageServerLoad} from './$types.js';
 import {db} from '$lib/server/db.js';
 import {error} from '@sveltejs/kit';
 import type {PublicSet} from '$lib/types.js';
+import type {ExerciseType} from '$lib/constants.js';
+import {EXERCISE_TYPES} from '$lib/constants.js';
 
 export const load: PageServerLoad = ({params}) => {
     const set = db
-        .prepare('SELECT id, title, source_label FROM sets WHERE slug = ?')
-        .get(params.slug) as { id: number; title: string; source_label: string | null } | undefined;
+        .prepare('SELECT id, title, source_label, type FROM sets WHERE slug = ?')
+        .get(params.slug) as {
+        id: number; title: string; source_label: string | null; type: string;
+    } | undefined;
 
     if (!set) throw error(404, 'Set not found.');
 
@@ -27,8 +31,15 @@ export const load: PageServerLoad = ({params}) => {
         ORDER BY position
     `).all(set.id) as QRow[];
 
+    const setType: ExerciseType = (EXERCISE_TYPES.includes(set.type as ExerciseType) ? set.type : 'kwt') as ExerciseType;
+
     const publicSet: PublicSet = {
-        id: set.id, slug: params.slug, title: set.title, sourceLabel: set.source_label, questions: rows.map((r) => ({
+        id: set.id,
+        slug: params.slug,
+        title: set.title,
+        sourceLabel: set.source_label,
+        type: setType,
+        questions: rows.map((r) => ({
             id: r.id,
             position: r.position,
             sentence1: r.sentence1,

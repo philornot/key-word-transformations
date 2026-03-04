@@ -1,8 +1,18 @@
 <script lang="ts">
+    /**
+     * @fileoverview /create/manual — manual exercise-set editor.
+     *
+     * Supports three exercise types (kwt / grammar / translation) selected
+     * via the `?type` URL param, which is forwarded by the page server load.
+     * The type controls which fields are shown in each question card and
+     * which fields are required for validation.
+     */
+
     import {goto} from '$app/navigation';
     import {t} from '$lib/i18n.svelte.js';
     import KwtQuestionEditor from '$lib/components/KwtQuestionEditor.svelte';
     import type {ParsedKWTQuestion} from '$lib/types.js';
+    import type {ExerciseType} from '$lib/constants.js';
     import {CircleNotchIcon, PlusIcon, RocketLaunchIcon} from 'phosphor-svelte';
 
     interface DraftQuestion extends ParsedKWTQuestion {
@@ -10,26 +20,27 @@
     }
 
     const GAP = '______';
+
+    let {data} = $props();
+
     let nextKey = 0;
     let title = $state('');
     let sourceLabel = $state('');
+    let setType = $state<ExerciseType>(data.initialType);
     let questions = $state<DraftQuestion[]>([]);
     let isPublishing = $state(false);
     let errorMessage = $state('');
 
-    /**
-     * True after the user has clicked "Publish" at least once.
-     * Triggers full-form validation highlighting.
-     */
+    /** True after the user has clicked "Publish" at least once. */
     let submitAttempted = $state(false);
 
     /**
-     * Set of question `_key` values the user has interacted with (blur fired).
-     * Questions in this set show their validation error immediately.
+     * Set of question `_key` values the user has interacted with.
+     * Questions in this set show their validation errors immediately.
      */
     let touchedKeys = $state(new Set<number>());
 
-    /** Creates a blank KWT exercise and appends it to the list. */
+    /** Creates a blank exercise and appends it to the list. */
     function addQuestion() {
         questions.push({
             _key: nextKey++,
@@ -56,14 +67,15 @@
 
     /**
      * Returns a validation error for a question, or null if valid.
+     * Sentence1 and keyword are only required for the 'kwt' type.
      *
      * @param q - The draft question to validate.
      * @returns Error message string or null.
      */
     function questionError(q: DraftQuestion): string | null {
-        if (!q.sentence1.trim()) return t('review.errSentence1');
+        if (setType === 'kwt' && !q.sentence1.trim()) return t('review.errSentence1');
         if (!q.sentence2WithGap.includes(GAP)) return t('review.errSentence2');
-        if (!q.keyword.trim()) return t('review.errKeyword');
+        if (setType === 'kwt' && !q.keyword.trim()) return t('review.errKeyword');
         if (!q.correctAnswer?.trim()) return t('review.errAnswer');
         return null;
     }
@@ -99,6 +111,7 @@
                 body: JSON.stringify({
                     title: title.trim(),
                     sourceLabel: sourceLabel.trim() || undefined,
+                    type: setType,
                     questions: questions.map((q) => ({
                         sentence1: q.sentence1.trim(),
                         sentence2WithGap: q.sentence2WithGap.trim(),
@@ -112,14 +125,14 @@
                 }),
             });
 
-            const data = await res.json();
+            const body = await res.json();
 
             if (!res.ok) {
-                errorMessage = data.error ?? 'Failed.';
+                errorMessage = body.error ?? 'Failed.';
                 return;
             }
 
-            await goto(`/set/${data.slug}`);
+            await goto(`/set/${body.slug}`);
         } catch (err) {
             errorMessage = err instanceof Error ? err.message : 'Unknown error.';
         } finally {
@@ -129,13 +142,16 @@
 </script>
 
 <svelte:head>
-    <title>{t('manual.title')} — Key word transformations</title>
+    <title>{t('manual.title')} — {t(`exerciseType.${setType}`)} — Key word transformations</title>
 </svelte:head>
 
 <div class="page">
     <div class="top-bar">
         <div>
-            <h1>{t('manual.title')}</h1>
+            <h1>
+                {t('manual.title')}
+                <span class="type-label">{t(`exerciseType.${setType}`)}</span>
+            </h1>
             <p class="subtitle">{t('manual.subtitle')}</p>
         </div>
         <button class="btn-primary pub-btn" disabled={isPublishing} onclick={publish}>
@@ -182,6 +198,7 @@
                 <KwtQuestionEditor
                         bind:question={questions[i]}
                         index={i}
+                        {setType}
                         error={visibleError(q)}
                         onRemove={() => questions = questions.filter((qq) => qq._key !== q._key)}
                         onTouch={() => touch(q._key)}
@@ -213,6 +230,20 @@
     h1 {
         font-size: var(--font-size-3xl);
         font-weight: var(--font-weight-extrabold);
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        flex-wrap: wrap;
+    }
+
+    .type-label {
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-semibold);
+        background: var(--color-primary);
+        color: var(--color-surface);
+        padding: var(--space-1) var(--space-3);
+        border-radius: var(--radius-full);
+        vertical-align: middle;
     }
 
     .subtitle {

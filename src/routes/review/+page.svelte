@@ -1,8 +1,17 @@
 <script lang="ts">
+    /**
+     * @fileoverview /review — post-OCR question review page.
+     *
+     * Lets the user select the exercise type (kwt / grammar / translation)
+     * before publishing, since OCR cannot infer it automatically.
+     */
+
     import {goto} from '$app/navigation';
     import {reviewState} from '$lib/store.svelte.js';
     import {t} from '$lib/i18n.svelte.js';
     import type {ParsedKWTQuestion} from '$lib/types.js';
+    import type {ExerciseType} from '$lib/constants.js';
+    import {EXERCISE_TYPES} from '$lib/constants.js';
     import KwtQuestionEditor from '$lib/components/KwtQuestionEditor.svelte';
     import {PlusIcon, RocketLaunchIcon} from 'phosphor-svelte';
 
@@ -14,6 +23,7 @@
 
     let title = $state(reviewState.title || '');
     let sourceLabel = $state('');
+    let setType = $state<ExerciseType>('kwt');
     let questions = $state<ParsedKWTQuestion[]>(
         reviewState.questions.map((q) => ({
             ...q,
@@ -35,7 +45,7 @@
      */
     let touchedIndices = $state(new Set<number>());
 
-    /** Creates a blank KWT exercise and appends it to the list. */
+    /** Creates a blank exercise and appends it to the list. */
     function addQuestion() {
         questions.push({
             sentence1: '',
@@ -60,14 +70,15 @@
 
     /**
      * Returns a validation error for a question, or null if valid.
+     * Sentence1 and keyword are only required for the 'kwt' type.
      *
      * @param q - The question to validate.
      * @returns Error message string or null.
      */
     function questionError(q: ParsedKWTQuestion): string | null {
-        if (!q.sentence1.trim()) return t('review.errSentence1');
+        if (setType === 'kwt' && !q.sentence1.trim()) return t('review.errSentence1');
         if (!q.sentence2WithGap.includes(GAP)) return t('review.errSentence2');
-        if (!q.keyword.trim()) return t('review.errKeyword');
+        if (setType === 'kwt' && !q.keyword.trim()) return t('review.errKeyword');
         if (!q.correctAnswer?.trim()) return t('review.errAnswer');
         return null;
     }
@@ -104,6 +115,7 @@
                 body: JSON.stringify({
                     title: title.trim(),
                     sourceLabel: sourceLabel.trim() || undefined,
+                    type: setType,
                     questions: questions.map((q) => ({
                         sentence1: q.sentence1.trim(),
                         sentence2WithGap: q.sentence2WithGap.trim(),
@@ -173,6 +185,21 @@
         </div>
     </div>
 
+    <!-- Exercise type selector -->
+    <div class="type-selector-row">
+        <span class="field-label">{t('review.exerciseTypeLabel')}</span>
+        <div class="type-selector" role="group">
+            {#each EXERCISE_TYPES as type}
+                <button
+                        type="button"
+                        class="type-btn"
+                        class:active={setType === type}
+                        onclick={() => setType = type}
+                >{t(`exerciseType.${type}`)}</button>
+            {/each}
+        </div>
+    </div>
+
     {#if errorMessage}
         <p class="error-banner" role="alert">{errorMessage}</p>
     {/if}
@@ -182,6 +209,7 @@
             <KwtQuestionEditor
                     bind:question={questions[i]}
                     index={i}
+                    {setType}
                     error={visibleError(q, i)}
                     onRemove={() => questions.splice(i, 1)}
                     onTouch={() => touch(i)}
@@ -241,6 +269,47 @@
         display: flex;
         flex-direction: column;
         gap: var(--space-1);
+    }
+
+    /* ── Exercise type selector ─────────────────────────────────────── */
+    .type-selector-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        flex-wrap: wrap;
+    }
+
+    .type-selector {
+        display: flex;
+        border: 2px solid var(--color-primary);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+    }
+
+    .type-btn {
+        padding: var(--space-1) var(--space-4);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-primary);
+        background: transparent;
+        border: none;
+        border-right: 1px solid var(--color-primary-muted);
+        border-radius: 0;
+        cursor: pointer;
+        transition: background var(--transition-base), color var(--transition-base);
+    }
+
+    .type-btn:last-child {
+        border-right: none;
+    }
+
+    .type-btn:hover {
+        background: var(--color-primary-light);
+    }
+
+    .type-btn.active {
+        background: var(--color-primary);
+        color: var(--color-surface);
     }
 
     .questions {

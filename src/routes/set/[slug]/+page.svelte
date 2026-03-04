@@ -1,15 +1,10 @@
 <script lang="ts">
     /**
-     * /set/[slug] — interactive KWT test page.
+     * /set/[slug] — interactive exercise test page.
      * Correct answers are never sent to the browser.
      *
-     * Word-count validation runs on the client only and is purely advisory —
-     * we warn the student but do not block submission. The check fires when
-     * focus leaves the card that contains the gap input (focusout with
-     * relatedTarget outside the card).
-     *
-     * When a question has maxWords = 0 the word-count feature is disabled
-     * entirely for that question (no hint shown, no warning fired).
+     * For 'grammar' and 'translation' types the keyword label is not shown,
+     * since hints are embedded directly in sentence2WithGap.
      */
 
     import type {PageData} from './$types.js';
@@ -21,6 +16,7 @@
     let {data} = $props<{ data: PageData }>();
 
     const GAP = '______';
+    const isKwt = $derived(data.set.type === 'kwt');
 
     let answers = $state<Record<number, string>>({});
     let isSubmitting = $state(false);
@@ -28,7 +24,7 @@
 
     /**
      * Per-question word-count warning messages.
-     * Key = question id, value = translated warning string or null (no warning).
+     * Key = question id, value = translated warning string or null.
      */
     let wordCountWarnings = $state<Record<number, string | null>>({});
 
@@ -50,10 +46,9 @@
 
     /**
      * Counts the number of whitespace-separated words in a string.
-     * Returns 0 for empty/whitespace-only input.
      *
      * @param s - Input string.
-     * @returns Word count.
+     * @returns Word count (0 for empty input).
      */
     function wordCount(s: string): number {
         return s.trim() === '' ? 0 : s.trim().split(/\s+/).length;
@@ -63,14 +58,11 @@
      * Validates the word count of the current answer for a question and
      * updates {@link wordCountWarnings} accordingly.
      *
-     * No-ops when `q.maxWords === 0` (question has no word-count limit).
-     * Called on `focusout` from the card element so the warning only
-     * appears once the student has finished with that question.
+     * No-ops when `q.maxWords === 0`.
      *
      * @param q - The question whose answer is being validated.
      */
     function validateWordCount(q: PublicKWTQuestion) {
-        // No limit configured for this question — nothing to check.
         if (!q.maxWords) {
             wordCountWarnings[q.id] = null;
             return;
@@ -94,8 +86,7 @@
 
     /**
      * Handles the `focusout` event on a question card.
-     * Fires validation only when focus moves *outside* the card, so that
-     * tabbing between fields inside the same card does not trigger it.
+     * Fires validation only when focus moves outside the card.
      *
      * @param e - FocusEvent from the card element.
      * @param q - The question associated with this card.
@@ -174,7 +165,7 @@
             <PencilSimple size={14} weight="bold"/>
             Edytuj
         </a>
-        {#if data.set.questions[0]}
+        {#if isKwt && data.set.questions[0]}
             <p class="instructions">
                 {t('set.keyword')} {t('set.keywordRequired')}.
             </p>
@@ -197,13 +188,17 @@
                 >
                     <div class="q-meta">
                         <span class="q-pos">{q.position}.</span>
-                        <span class="keyword">{t('set.keyword')} <strong>{q.keyword}</strong></span>
+                        {#if isKwt}
+                            <span class="keyword">{t('set.keyword')} <strong>{q.keyword}</strong></span>
+                        {/if}
                         {#if rangeLabel}
                             <span class="max-words">{rangeLabel}</span>
                         {/if}
                     </div>
 
-                    <p class="sentence1">{q.sentence1}</p>
+                    {#if isKwt}
+                        <p class="sentence1">{q.sentence1}</p>
+                    {/if}
 
                     <div class="sentence2-wrap">
                         <span class="s2-label">{t('set.sentence2label')}</span>

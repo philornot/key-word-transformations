@@ -2,16 +2,18 @@
  * @fileoverview Shared type definitions for Key Word Transformation exercises.
  */
 
+import type {ExerciseType} from '$lib/constants.js';
+
 /**
  * A single KWT question as returned from the OCR/parse pipeline,
  * before it is saved to the database.
  */
 export interface ParsedKWTQuestion {
-    /** Full original sentence (the "stem"). */
+    /** Full original sentence (the "stem"). Only used for 'kwt' type sets. */
     sentence1: string;
     /** Second sentence containing `______` as the gap placeholder. */
     sentence2WithGap: string;
-    /** The key word, written in uppercase. */
+    /** The key word, written in uppercase. Only used for 'kwt' type sets. */
     keyword: string;
     /** The primary correct answer. Null until set by user. */
     correctAnswer: string | null;
@@ -63,6 +65,8 @@ export interface PublicSet {
     slug: string;
     title: string;
     sourceLabel: string | null;
+    /** Exercise type that determines how questions are displayed and validated. */
+    type: ExerciseType;
     questions: PublicKWTQuestion[];
 }
 
@@ -71,6 +75,8 @@ export interface SetSummary {
     slug: string;
     title: string;
     sourceLabel: string | null;
+    /** Exercise type for grouping on the home page. */
+    type: ExerciseType;
     questionCount: number;
     createdAt: string;
 }
@@ -120,5 +126,7 @@ export interface EditableSet {
     title: string;
     sourceLabel: string | null;
     isPublic: boolean;
+    /** Exercise type that determines editor behaviour. */
+    type: ExerciseType;
     questions: KWTQuestion[];
 }

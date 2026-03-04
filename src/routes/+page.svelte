@@ -1,12 +1,18 @@
 <script lang="ts">
     import {t} from '$lib/i18n.svelte.js';
     import type {PageData} from './$types.js';
-    import type {SetSummary} from '$lib/types.js';
-    import {ArrowRightIcon, CameraIcon, LinkIcon, MagnifyingGlassIcon, PencilSimpleIcon, RocketLaunchIcon, UploadIcon} from 'phosphor-svelte';
+    import type {ExerciseType} from '$lib/constants.js';
+    import {EXERCISE_TYPES} from '$lib/constants.js';
+    import {
+        ArrowRightIcon,
+        CameraIcon,
+        LinkIcon,
+        MagnifyingGlassIcon,
+        RocketLaunchIcon,
+        UploadIcon,
+    } from 'phosphor-svelte';
 
     let {data} = $props<{ data: PageData }>();
-
-    const sets = $derived(data.sets as SetSummary[]);
 
     /** Slug of the set whose link was just copied — used to show feedback. */
     let copiedSlug = $state<string | null>(null);
@@ -17,7 +23,7 @@
      *
      * @param slug - The set's slug.
      */
-    async function copyLinkIcon(slug: string) {
+    async function copyLink(slug: string) {
         const url = `${window.location.origin}/set/${slug}`;
         await navigator.clipboard.writeText(url);
         copiedSlug = slug;
@@ -25,6 +31,27 @@
             copiedSlug = null;
         }, 2000);
     }
+
+    /**
+     * Returns the translated label for an exercise type.
+     *
+     * @param type - Exercise type key.
+     * @returns Translated display string.
+     */
+    function typeLabel(type: ExerciseType): string {
+        return t(`exerciseType.${type}`);
+    }
+
+    /**
+     * Returns true when a given type has at least one public set.
+     *
+     * @param type - Exercise type key.
+     */
+    function hasAny(type: ExerciseType): boolean {
+        return (data.setsByType[type]?.length ?? 0) > 0;
+    }
+
+    const anyPublicSets = $derived(EXERCISE_TYPES.some(hasAny));
 </script>
 
 <svelte:head>
@@ -40,14 +67,6 @@
             <p class="hero-sub">{t('home.subtitle')}</p>
         </div>
         <div class="cta-row">
-            <!-- Manual first (primary), scan second (ghost + beta) -->
-            <a href="/create/manual" class="cta-card cta-primary">
-                <PencilSimpleIcon size={24} weight="duotone"/>
-                <div>
-                    <strong>{t('home.manualTitle')}</strong>
-                    <span>{t('home.manualDesc')}</span>
-                </div>
-            </a>
             <a href="/create/scan" class="cta-card cta-ghost">
                 <CameraIcon size={24} weight="duotone"/>
                 <div>
@@ -65,41 +84,50 @@
     <section class="sets-section">
         <h2 class="section-title">{t('home.setsTitle')}</h2>
 
-        {#if sets.length === 0}
+        {#if !anyPublicSets}
             <div class="no-sets card">
                 <p>Nie ma jeszcze żadnych zestawów do rozwiązania.</p>
                 <p class="no-sets-sub">Możesz stworzyć własny zestaw i podzielić się nim przez link.</p>
             </div>
         {:else}
-            <div class="sets-grid">
-                {#each sets as s (s.slug)}
-                    <div class="set-card card">
-                        {#if s.sourceLabel}
-                            <span class="source-badge">{s.sourceLabel}</span>
-                        {/if}
-                        <strong class="set-title">{s.title}</strong>
-                        <span class="set-meta">{t('home.questionsCount', {n: s.questionCount})}</span>
-                        <div class="set-actions">
-                            <a href="/set/{s.slug}" class="solve-link">
-                                {t('home.solveNow')}
-                                <ArrowRightIcon size={14} weight="bold"/>
-                            </a>
-                            <button
-                                    class="copy-btn"
-                                    onclick={() => copyLinkIcon(s.slug)}
-                                    title="Skopiuj link do udostępnienia"
-                                    aria-label="Skopiuj link do zestawu {s.title}"
-                            >
-                                {#if copiedSlug === s.slug}
-                                    <span class="copied-label">Skopiowano!</span>
-                                {:else}
-                                    <LinkIcon size={14} weight="bold"/>
-                                {/if}
-                            </button>
+            {#each EXERCISE_TYPES as type}
+                {#if hasAny(type)}
+                    <div class="type-section">
+                        <h3 class="type-heading">
+                            <span class="type-badge">{typeLabel(type)}</span>
+                        </h3>
+                        <div class="sets-grid">
+                            {#each data.setsByType[type] as s (s.slug)}
+                                <div class="set-card card">
+                                    {#if s.sourceLabel}
+                                        <span class="source-badge">{s.sourceLabel}</span>
+                                    {/if}
+                                    <strong class="set-title">{s.title}</strong>
+                                    <span class="set-meta">{t('home.questionsCount', {n: s.questionCount})}</span>
+                                    <div class="set-actions">
+                                        <a href="/set/{s.slug}" class="solve-link">
+                                            {t('home.solveNow')}
+                                            <ArrowRightIcon size={14} weight="bold"/>
+                                        </a>
+                                        <button
+                                                class="copy-btn"
+                                                onclick={() => copyLink(s.slug)}
+                                                title="Skopiuj link do udostępnienia"
+                                                aria-label="Skopiuj link do zestawu {s.title}"
+                                        >
+                                            {#if copiedSlug === s.slug}
+                                                <span class="copied-label">Skopiowano!</span>
+                                            {:else}
+                                                <LinkIcon size={14} weight="bold"/>
+                                            {/if}
+                                        </button>
+                                    </div>
+                                </div>
+                            {/each}
                         </div>
                     </div>
-                {/each}
-            </div>
+                {/if}
+            {/each}
         {/if}
     </section>
 
@@ -174,8 +202,7 @@
     }
 
     .cta-card {
-        flex: 1;
-        min-width: 220px;
+        flex: 0 1 auto;
         display: flex;
         align-items: center;
         gap: var(--space-3);
@@ -191,12 +218,6 @@
         text-decoration: none;
     }
 
-    .cta-primary {
-        background: var(--color-primary);
-        color: var(--color-surface);
-        box-shadow: var(--shadow-md);
-    }
-
     .cta-ghost {
         background: var(--color-surface);
         color: var(--color-text);
@@ -208,19 +229,6 @@
         display: flex;
         flex-direction: column;
         gap: 2px;
-    }
-
-    .cta-primary strong {
-        color: var(--color-surface);
-        font-size: var(--font-size-sm);
-        display: flex;
-        align-items: center;
-        gap: var(--space-2);
-    }
-
-    .cta-primary span {
-        color: rgba(255, 255, 255, 0.75);
-        font-size: var(--font-size-xs);
     }
 
     .cta-ghost strong {
@@ -255,10 +263,32 @@
         margin-bottom: var(--space-4);
     }
 
-    /* ── Sets grid ────────────────────────────────────────────────────── */
+    /* ── Sets section ─────────────────────────────────────────────────── */
     .sets-section {
         display: flex;
         flex-direction: column;
+    }
+
+    .type-section {
+        margin-bottom: var(--space-8);
+    }
+
+    .type-heading {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        margin-bottom: var(--space-4);
+    }
+
+    .type-badge {
+        background: var(--color-primary);
+        color: var(--color-surface);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-bold);
+        padding: var(--space-1) var(--space-3);
+        border-radius: var(--radius-full);
+        letter-spacing: var(--letter-spacing-wide);
+        text-transform: uppercase;
     }
 
     .no-sets {

@@ -19,6 +19,8 @@ import type {RequestHandler} from '@sveltejs/kit';
 import {error, json} from '@sveltejs/kit';
 import {db} from '$lib/server/db.js';
 import {nanoid} from 'nanoid';
+import type {ExerciseType} from '$lib/constants.js';
+import {EXERCISE_TYPES} from '$lib/constants.js';
 // @ts-ignore
 import {env} from '$env/dynamic/private';
 
@@ -35,20 +37,25 @@ interface QuestionInput {
     correctAnswer: string;
     alternativeAnswers?: string[];
     exampleWrongAnswers?: string[];
-    /** Minimum word count; 0 means no minimum enforced. */
     minWords?: number;
-    /** Maximum word count; 0 means no maximum enforced. */
     maxWords: number;
 }
 
 interface PutBody {
     title: string;
     sourceLabel?: string;
+    type?: string;
     questions: QuestionInput[];
 }
 
 type SetRow = {
-    id: number; slug: string; title: string; source_label: string | null; is_public: number; parent_slug: string | null;
+    id: number;
+    slug: string;
+    title: string;
+    source_label: string | null;
+    is_public: number;
+    type: string;
+    parent_slug: string | null;
 };
 
 type QRow = {
@@ -69,19 +76,31 @@ type QRow = {
 // ---------------------------------------------------------------------------
 
 /**
+ * Resolves a raw type string to a valid ExerciseType, defaulting to 'kwt'.
+ *
+ * @param raw - Unvalidated type string from request body or DB.
+ * @returns Validated ExerciseType.
+ */
+function resolveType(raw?: string | null): ExerciseType {
+    return (EXERCISE_TYPES.includes(raw as ExerciseType) ? raw : 'kwt') as ExerciseType;
+}
+
+/**
  * Validates a single question input object.
  *
  * `maxWords = 0` is valid and means "no word-count limit". When a limit is
- * set, `minWords` must be ≤ `maxWords`.
+ * set, `minWords` must be ≤ `maxWords`. sentence1 and keyword are only
+ * required for KWT-type sets.
  *
  * @param q - The question payload from the request body.
  * @param index - Zero-based position (used in error messages).
+ * @param setType - The exercise type of the parent set.
  * @throws {HttpError} 400 if any required field is missing or invalid.
  */
-function validateQuestion(q: QuestionInput, index: number): void {
-    if (!q.sentence1?.trim()) throw error(400, `Q${index + 1}: sentence1 required.`);
+function validateQuestion(q: QuestionInput, index: number, setType: ExerciseType): void {
+    if (setType === 'kwt' && !q.sentence1?.trim()) throw error(400, `Q${index + 1}: sentence1 required.`);
     if (!q.sentence2WithGap?.includes('______')) throw error(400, `Q${index + 1}: sentence2WithGap must contain ______.`);
-    if (!q.keyword?.trim()) throw error(400, `Q${index + 1}: keyword required.`);
+    if (setType === 'kwt' && !q.keyword?.trim()) throw error(400, `Q${index + 1}: keyword required.`);
     if (!q.correctAnswer?.trim()) throw error(400, `Q${index + 1}: correctAnswer required.`);
 
     const maxWords = q.maxWords ?? 0;
@@ -110,25 +129,25 @@ function insertQuestions(setId: number, questions: QuestionInput[]): void {
     `);
 
     for (const [i, q] of questions.entries()) {
-        stmt.run(setId, i + 1, q.sentence1.trim(), q.sentence2WithGap.trim(), q.keyword.trim().toUpperCase(), q.correctAnswer.trim(), JSON.stringify((q.alternativeAnswers ?? []).map((a) => a.trim()).filter(Boolean)), JSON.stringify((q.exampleWrongAnswers ?? []).map((a) => a.trim()).filter(Boolean)), q.minWords ?? 0, q.maxWords ?? 0,);
+        stmt.run(setId, i + 1, (q.sentence1 ?? '').trim(), q.sentence2WithGap.trim(), (q.keyword ?? '').trim().toUpperCase(), q.correctAnswer.trim(), JSON.stringify((q.alternativeAnswers ?? []).map((a) => a.trim()).filter(Boolean)), JSON.stringify((q.exampleWrongAnswers ?? []).map((a) => a.trim()).filter(Boolean)), q.minWords ?? 0, q.maxWords ?? 0,);
     }
 }
 
 /**
  * Produces a deterministic string fingerprint of a set's content.
- * Used to decide whether a user fork is truly different from its source.
  *
  * @param title - Set title.
  * @param sourceLabel - Optional source label.
+ * @param type - Exercise type.
  * @param questions - Question payloads.
  * @returns JSON string suitable for equality comparison.
  */
-function fingerprint(title: string, sourceLabel: string | undefined, questions: QuestionInput[]): string {
+function fingerprint(title: string, sourceLabel: string | undefined, type: ExerciseType, questions: QuestionInput[],): string {
     return JSON.stringify({
-        title: title.trim(), sourceLabel: sourceLabel?.trim() ?? '', questions: questions.map((q) => ({
-            sentence1: q.sentence1.trim(),
+        title: title.trim(), sourceLabel: sourceLabel?.trim() ?? '', type, questions: questions.map((q) => ({
+            sentence1: (q.sentence1 ?? '').trim(),
             sentence2WithGap: q.sentence2WithGap.trim(),
-            keyword: q.keyword.trim().toUpperCase(),
+            keyword: (q.keyword ?? '').trim().toUpperCase(),
             correctAnswer: q.correctAnswer.trim(),
             alternativeAnswers: (q.alternativeAnswers ?? []).map((a) => a.trim()).filter(Boolean).sort(),
             exampleWrongAnswers: (q.exampleWrongAnswers ?? []).map((a) => a.trim()).filter(Boolean).sort(),
@@ -147,7 +166,10 @@ function fingerprint(title: string, sourceLabel: string | undefined, questions: 
  */
 function fingerprintFromDb(setRow: SetRow, qRows: QRow[]): string {
     return JSON.stringify({
-        title: setRow.title, sourceLabel: setRow.source_label ?? '', questions: qRows.map((r) => ({
+        title: setRow.title,
+        sourceLabel: setRow.source_label ?? '',
+        type: resolveType(setRow.type),
+        questions: qRows.map((r) => ({
             sentence1: r.sentence1,
             sentence2WithGap: r.sentence2_with_gap,
             keyword: r.keyword,
@@ -173,7 +195,7 @@ export const GET: RequestHandler = ({params, cookies}) => {
     if (!isAdmin) throw error(403, 'Admin access required.');
 
     const set = db
-        .prepare('SELECT id, slug, title, source_label, is_public, parent_slug FROM sets WHERE slug = ?')
+        .prepare('SELECT id, slug, title, source_label, is_public, type, parent_slug FROM sets WHERE slug = ?')
         .get(params.slug!) as SetRow | undefined;
 
     if (!set) throw error(404, 'Set not found.');
@@ -202,6 +224,7 @@ export const GET: RequestHandler = ({params, cookies}) => {
         title: set.title,
         sourceLabel: set.source_label,
         isPublic: set.is_public === 1,
+        type: resolveType(set.type),
         questions: qRows.map((r) => ({
             id: r.id,
             position: r.position,
@@ -223,11 +246,6 @@ export const GET: RequestHandler = ({params, cookies}) => {
 
 /**
  * Updates an existing set in-place (admin) or creates a user fork (no session).
- *
- * Admin path  → replaces questions for the existing slug; returns { slug }.
- * User path   → creates a new set derived from the original:
- *                 - If content is identical to the source → { slug, isNew: false }.
- *                 - Otherwise → saves new set, returns { slug, isNew: true }.
  */
 export const PUT: RequestHandler = async ({request, params, cookies}) => {
     const isAdmin = !!env.ADMIN_PASSWORD && cookies.get(ADMIN_COOKIE) === env.ADMIN_PASSWORD;
@@ -240,14 +258,15 @@ export const PUT: RequestHandler = async ({request, params, cookies}) => {
     }
 
     const {title, sourceLabel, questions} = body;
+    const setType = resolveType(body.type);
 
     if (!title?.trim()) throw error(400, 'title is required.');
     if (!Array.isArray(questions) || questions.length === 0) throw error(400, 'At least one question is required.');
 
-    for (const [i, q] of questions.entries()) validateQuestion(q, i);
+    for (const [i, q] of questions.entries()) validateQuestion(q, i, setType);
 
     const sourceSet = db
-        .prepare('SELECT id, slug, title, source_label, is_public, parent_slug FROM sets WHERE slug = ?')
+        .prepare('SELECT id, slug, title, source_label, is_public, type, parent_slug FROM sets WHERE slug = ?')
         .get(params.slug!) as SetRow | undefined;
 
     if (!sourceSet) throw error(404, 'Set not found.');
@@ -255,12 +274,13 @@ export const PUT: RequestHandler = async ({request, params, cookies}) => {
     // ── Admin: in-place update ──────────────────────────────────────────
     if (isAdmin) {
         db.transaction(() => {
-            db.prepare('UPDATE sets SET title = ?, source_label = ? WHERE id = ?')
-                .run(title.trim(), sourceLabel?.trim() || null, sourceSet.id);
+            db.prepare('UPDATE sets SET title = ?, source_label = ?, type = ? WHERE id = ?')
+                .run(title.trim(), sourceLabel?.trim() || null, setType, sourceSet.id);
 
-            const questionIds = (db.prepare('SELECT id FROM questions WHERE set_id = ?').all(sourceSet.id) as {
-                id: number
-            }[]).map((r) => r.id);
+            const questionIds = (db
+                .prepare('SELECT id FROM questions WHERE set_id = ?')
+                .all(sourceSet.id) as { id: number }[])
+                .map((r) => r.id);
 
             if (questionIds.length > 0) {
                 const placeholders = questionIds.map(() => '?').join(', ');
@@ -280,7 +300,7 @@ export const PUT: RequestHandler = async ({request, params, cookies}) => {
     // ── User fork ───────────────────────────────────────────────────────
     const originSlug = sourceSet.parent_slug ?? sourceSet.slug;
     const originSet = db
-        .prepare('SELECT id, slug, title, source_label, is_public, parent_slug FROM sets WHERE slug = ?')
+        .prepare('SELECT id, slug, title, source_label, is_public, type, parent_slug FROM sets WHERE slug = ?')
         .get(originSlug) as SetRow | undefined;
 
     if (originSet) {
@@ -288,7 +308,7 @@ export const PUT: RequestHandler = async ({request, params, cookies}) => {
             .prepare('SELECT * FROM questions WHERE set_id = ? ORDER BY position')
             .all(originSet.id) as QRow[];
 
-        if (fingerprint(title, sourceLabel, questions) === fingerprintFromDb(originSet, originQRows)) {
+        if (fingerprint(title, sourceLabel, setType, questions) === fingerprintFromDb(originSet, originQRows)) {
             return json({slug: originSet.slug, isNew: false});
         }
     }
@@ -297,8 +317,8 @@ export const PUT: RequestHandler = async ({request, params, cookies}) => {
 
     db.transaction(() => {
         const result = db
-            .prepare('INSERT INTO sets (slug, title, source_label, is_public, parent_slug) VALUES (?, ?, ?, 0, ?)')
-            .run(newSlug, title.trim(), sourceLabel?.trim() || null, originSlug);
+            .prepare('INSERT INTO sets (slug, title, source_label, is_public, type, parent_slug) VALUES (?, ?, ?, 0, ?, ?)')
+            .run(newSlug, title.trim(), sourceLabel?.trim() || null, setType, originSlug);
 
         insertQuestions(result.lastInsertRowid as number, questions);
     })();

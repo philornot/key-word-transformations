@@ -2,25 +2,45 @@
     /**
      * @fileoverview Reusable KWT question card editor.
      * Used by both /review (post-OCR) and /create/manual.
+     *
+     * For 'grammar' and 'translation' set types, the sentence1 and keyword
+     * fields are hidden — the hint lives inline inside sentence2WithGap.
      */
 
     import {t} from '$lib/i18n.svelte.js';
     import type {ParsedKWTQuestion} from '$lib/types.js';
-    import {WarningCircleIcon, XSquare} from 'phosphor-svelte';
+    import type {ExerciseType} from '$lib/constants.js';
     import {CANONICAL_GAP} from '$lib/constants.js';
+    import {WarningCircleIcon, XSquare} from 'phosphor-svelte';
     import AnswersBlock from '$lib/components/AnswersBlock.svelte';
 
     interface Props {
         question: ParsedKWTQuestion;
         index: number;
+        /** Exercise type of the parent set — controls which fields are shown. */
+        setType: ExerciseType;
         onRemove: () => void;
         error: string | null;
         onTouch?: () => void;
     }
 
-    let {question = $bindable(), index, error, onRemove, onTouch}: Props = $props();
+    let {question = $bindable(), index, setType, error, onRemove, onTouch}: Props = $props();
 
     const GAP = '______';
+
+    /** Whether to show the sentence1 and keyword fields (only for KWT). */
+    const isKwt = $derived(setType === 'kwt');
+
+    /**
+     * Returns the correct placeholder for sentence2 based on the set type.
+     *
+     * @returns i18n key-resolved placeholder string.
+     */
+    function sentence2Placeholder(): string {
+        if (setType === 'grammar') return t('review.sentence2GrammarPh');
+        if (setType === 'translation') return t('review.sentence2TranslationPh');
+        return t('review.sentence2ph');
+    }
 
     /**
      * Uppercases and strips non-alpha characters from keyword input.
@@ -90,12 +110,6 @@
 
     /**
      * Formats minWords / maxWords into the single-field display string.
-     *
-     * Conventions:
-     *   0 / 0  → ''     (no limit)
-     *   0 / 5  → '5'    (max only)
-     *   2 / 5  → '2–5'  (explicit range)
-     *   n / n  → 'n'    (min === max → single number)
      *
      * @param min - Minimum word count (0 = no minimum).
      * @param max - Maximum word count (0 = no maximum).
@@ -175,26 +189,30 @@
         </button>
     </div>
 
-    <label class="field-label" for="s1-{index}">{t('review.sentence1')}</label>
-    <textarea
-            id="s1-{index}"
-            class="text-input"
-            rows="2"
-            bind:value={question.sentence1}
-            placeholder={t('review.sentence1ph')}
-            onblur={() => onTouch?.()}
-    ></textarea>
+    {#if isKwt}
+        <label class="field-label" for="s1-{index}">{t('review.sentence1')}</label>
+        <textarea
+                id="s1-{index}"
+                class="text-input"
+                rows="2"
+                bind:value={question.sentence1}
+                placeholder={t('review.sentence1ph')}
+                onblur={() => onTouch?.()}
+        ></textarea>
+    {/if}
 
-    <label class="field-label" for="kw-{index}">{t('review.keyword')}</label>
-    <input
-            id="kw-{index}"
-            class="text-input kw-input"
-            type="text"
-            value={question.keyword}
-            oninput={onKeywordInput}
-            placeholder={t('review.keywordph')}
-            onblur={() => onTouch?.()}
-    />
+    {#if isKwt}
+        <label class="field-label" for="kw-{index}">{t('review.keyword')}</label>
+        <input
+                id="kw-{index}"
+                class="text-input kw-input"
+                type="text"
+                value={question.keyword}
+                oninput={onKeywordInput}
+                placeholder={t('review.keywordph')}
+                onblur={() => onTouch?.()}
+        />
+    {/if}
 
     <label class="field-label" for="s2-{index}">
         {t('review.sentence2')}
@@ -207,7 +225,7 @@
                 rows="2"
                 value={question.sentence2WithGap}
                 oninput={onGapInput}
-                placeholder={t('review.sentence2ph')}
+                placeholder={sentence2Placeholder()}
                 onblur={() => onTouch?.()}
         ></textarea>
         <button
@@ -363,7 +381,7 @@
     .bottom-row {
         display: flex;
         gap: var(--space-4);
-        align-items: flex-start; /* top-align so labels line up */
+        align-items: flex-start;
         flex-wrap: wrap;
     }
 

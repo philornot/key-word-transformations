@@ -7,6 +7,7 @@
     import {t} from '$lib/i18n.svelte.js';
     import KwtQuestionEditor from '$lib/components/KwtQuestionEditor.svelte';
     import type {KWTQuestion, ParsedKWTQuestion} from '$lib/types.js';
+    import type {ExerciseType} from '$lib/constants.js';
     import type {PageData} from './$types.js';
     import {CircleNotchIcon, FloppyDiskIcon, PlusIcon, RocketLaunchIcon} from 'phosphor-svelte';
 
@@ -21,8 +22,7 @@
     const isAdmin = $derived(data.isAdmin);
     const serverSlug = $derived(data.set.slug);
     const serverTitle = $derived(data.set.title);
-    const serverSourceLabel = $derived(data.set.sourceLabel ?? '');
-    const serverQuestions = $derived(data.set.questions as KWTQuestion[]);
+    const setType = $derived(data.set.type as ExerciseType);
 
     let nextKey = 0;
     let title = $state(data.set.title);
@@ -36,7 +36,7 @@
             correctAnswer: q.correctAnswer,
             alternativeAnswers: [...q.alternativeAnswers],
             exampleWrongAnswers: [...q.exampleWrongAnswers],
-            minWords: q.minWords ?? 2,
+            minWords: q.minWords ?? 0,
             maxWords: q.maxWords,
         })),
     );
@@ -46,7 +46,7 @@
     let submitAttempted = $state(false);
     let touchedKeys = $state(new Set<number>());
 
-    /** Creates a blank KWT exercise and appends it to the list. */
+    /** Creates a blank exercise and appends it to the list. */
     function addQuestion() {
         questions.push({
             _key: nextKey++,
@@ -72,21 +72,21 @@
 
     /**
      * Returns a validation error for a question, or null if valid.
+     * Sentence1 and keyword are only required for the 'kwt' type.
      *
      * @param q - The draft question to validate.
      * @returns Error message string or null.
      */
     function questionError(q: DraftQuestion): string | null {
-        if (!q.sentence1.trim()) return t('review.errSentence1');
+        if (setType === 'kwt' && !q.sentence1.trim()) return t('review.errSentence1');
         if (!q.sentence2WithGap.includes(GAP)) return t('review.errSentence2');
-        if (!q.keyword.trim()) return t('review.errKeyword');
+        if (setType === 'kwt' && !q.keyword.trim()) return t('review.errKeyword');
         if (!q.correctAnswer?.trim()) return t('review.errAnswer');
         return null;
     }
 
     /**
-     * Returns the visible error for a question — only after the question has
-     * been touched or a save was attempted.
+     * Returns the visible error for a question — only after touching or save attempt.
      *
      * @param q - The draft question.
      * @returns Error message string or null.
@@ -102,9 +102,7 @@
         questions.every((q) => questionError(q) === null),
     );
 
-    /**
-     * Saves the edited set and redirects to the resulting slug.
-     */
+    /** Saves the edited set and redirects to the resulting slug. */
     async function save() {
         submitAttempted = true;
         if (!isValid) return;
@@ -119,6 +117,7 @@
                 body: JSON.stringify({
                     title: title.trim(),
                     sourceLabel: sourceLabel.trim() || undefined,
+                    type: setType,
                     questions: questions.map((q) => ({
                         sentence1: q.sentence1.trim(),
                         sentence2WithGap: q.sentence2WithGap.trim(),
@@ -157,7 +156,10 @@
 <div class="page">
     <div class="top-bar">
         <div>
-            <h1>{isAdmin ? 'Edytuj zestaw' : 'Edytuj kopię zestawu'}</h1>
+            <h1>
+                {isAdmin ? 'Edytuj zestaw' : 'Edytuj kopię zestawu'}
+                <span class="type-label">{t(`exerciseType.${setType}`)}</span>
+            </h1>
             <p class="subtitle">
                 {#if isAdmin}
                     Zmiany nadpisują oryginalny zestaw. Link pozostaje ten sam.
@@ -213,6 +215,7 @@
             <KwtQuestionEditor
                     bind:question={questions[i]}
                     index={i}
+                    {setType}
                     error={visibleError(q)}
                     onRemove={() => (questions = questions.filter((qq) => qq._key !== q._key))}
                     onTouch={() => touch(q._key)}
@@ -243,6 +246,20 @@
     h1 {
         font-size: var(--font-size-3xl);
         font-weight: var(--font-weight-extrabold);
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        flex-wrap: wrap;
+    }
+
+    .type-label {
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-semibold);
+        background: var(--color-primary);
+        color: var(--color-surface);
+        padding: var(--space-1) var(--space-3);
+        border-radius: var(--radius-full);
+        vertical-align: middle;
     }
 
     .subtitle {

@@ -6,7 +6,14 @@ export const locale = $state<{ lang: 'pl' | 'en' }>({lang: 'pl'});
 
 const pl = {
     nav: {
-        home: 'Key word transformations', scan: 'Zeskanuj zadania', manual: 'Utwórz zestaw',
+        home: 'Key word transformations', scan: 'Zeskanuj zadania',
+    }, exerciseType: {
+        kwt: 'KWT',
+        grammar: 'Gramatykalizacja',
+        translation: 'Tłumaczenia',
+        kwtDesc: 'Transformacje słów kluczowych',
+        grammarDesc: 'Uzupełnianie zdań',
+        translationDesc: 'Tłumaczenie fragmentów',
     }, home: {
         title: 'Zamień kartkę z ćwiczeniami w interaktywny test',
         subtitle: 'Wgraj zdjęcie lub PDF kartki, a system automatycznie wykryje transformacje słów kluczowych. Popraw wynik i udostępnij link.',
@@ -36,6 +43,7 @@ const pl = {
         errorType: 'Nieobsługiwany format. Użyj JPEG, PNG, WEBP lub PDF.',
         errorSize: 'Plik jest za duży. Maksymalny rozmiar to 20 MB.',
         removeFile: 'Usuń plik',
+        exerciseTypeLabel: 'Typ ćwiczenia',
     }, review: {
         title: 'Sprawdź pytania',
         subtitle: '{n} pytań wykrytych — popraw błędy i uzupełnij poprawne odpowiedzi.',
@@ -50,6 +58,8 @@ const pl = {
         sentence1ph: 'Wpisz pełne zdanie…',
         sentence2: 'Zdanie z luką (użyj ______ jako luki)',
         sentence2ph: "np. It wasn't until Monday ______ the news.",
+        sentence2GrammarPh: 'np. The accident prevented (he / complete) ______ the project on time.',
+        sentence2TranslationPh: 'np. The cat (z pewnością zjadł) ______ all the food.',
         keyword: 'Keyword',
         keywordph: 'np. UNTIL',
         answer: 'Poprawna odpowiedź',
@@ -67,17 +77,18 @@ const pl = {
         errKeyword: 'Keyword jest wymagany.',
         errAnswer: 'Poprawna odpowiedź jest wymagana.',
         questionNum: 'Pytanie #{n}',
+        exerciseTypeLabel: 'Typ ćwiczenia w zestawie',
     }, manual: {
-        title: 'Nowy zestaw — transformacje',
-        subtitle: 'Utwórz zestaw ćwiczeń Key Word Transformation bez skanowania.',
+        title: 'Nowy zestaw',
+        subtitle: 'Utwórz zestaw ćwiczeń bez skanowania.',
         setTitle: 'Tytuł zestawu',
         setTitlePlaceholder: 'np. FCE Transformacje – Czas przeszły',
         sourceLabel: 'Źródło (opcjonalnie)',
         sourceLabelPlaceholder: 'np. Matura 2024, poziom rozszerzony',
         publish: 'Opublikuj zestaw',
         publishing: 'Publikowanie…',
-        addQuestion: 'Dodaj transformację',
-        empty: 'Brak pytań. Kliknij „Dodaj transformację" poniżej.',
+        addQuestion: 'Dodaj pytanie',
+        empty: 'Brak pytań. Kliknij „Dodaj pytanie" poniżej.',
     }, set: {
         questions: '{n} pytań',
         submit: 'Sprawdź odpowiedzi',
@@ -112,7 +123,14 @@ const pl = {
 
 const en: typeof pl = {
     nav: {
-        home: 'Key word transformations', scan: 'Scan worksheet', manual: 'Create set',
+        home: 'Key word transformations', scan: 'Scan worksheet',
+    }, exerciseType: {
+        kwt: 'KWT',
+        grammar: 'Grammar',
+        translation: 'Translations',
+        kwtDesc: 'Key word transformations',
+        grammarDesc: 'Grammar completion',
+        translationDesc: 'Sentence translation',
     }, home: {
         title: 'Turn a paper worksheet into an interactive test',
         subtitle: 'Upload a photo or PDF of your worksheet and the app auto-detects key word transformation exercises. Review, publish, share.',
@@ -142,6 +160,7 @@ const en: typeof pl = {
         errorType: 'Unsupported file type. Use JPEG, PNG, WEBP, or PDF.',
         errorSize: 'File too large. Maximum size is 20 MB.',
         removeFile: 'Remove file',
+        exerciseTypeLabel: 'Exercise type',
     }, review: {
         title: 'Review questions',
         subtitle: '{n} questions detected — fix any mistakes and fill in correct answers.',
@@ -156,6 +175,8 @@ const en: typeof pl = {
         sentence1ph: 'Type the full original sentence…',
         sentence2: 'Gapped sentence (use ______ for the gap)',
         sentence2ph: "e.g. It wasn't until Monday ______ the news.",
+        sentence2GrammarPh: 'e.g. The accident prevented (he / complete) ______ the project on time.',
+        sentence2TranslationPh: 'e.g. The cat (z pewnością zjadł) ______ all the food.',
         keyword: 'Keyword',
         keywordph: 'e.g. UNTIL',
         answer: 'Correct answer',
@@ -173,17 +194,18 @@ const en: typeof pl = {
         errKeyword: 'Keyword is required.',
         errAnswer: 'Correct answer is required.',
         questionNum: 'Question #{n}',
+        exerciseTypeLabel: 'Set exercise type',
     }, manual: {
-        title: 'New set — transformations',
-        subtitle: 'Create a Key Word Transformation set without scanning.',
+        title: 'New set',
+        subtitle: 'Create an exercise set without scanning.',
         setTitle: 'Set title',
         setTitlePlaceholder: 'e.g. FCE Transformations – Past Tenses',
         sourceLabel: 'Source (optional)',
         sourceLabelPlaceholder: 'e.g. June 2024 Matura, advanced level',
         publish: 'Publish set',
         publishing: 'Publishing…',
-        addQuestion: 'Add transformation',
-        empty: 'No questions yet. Click "Add transformation" below.',
+        addQuestion: 'Add question',
+        empty: 'No questions yet. Click "Add question" below.',
     }, set: {
         questions: '{n} questions',
         submit: 'Submit answers',
