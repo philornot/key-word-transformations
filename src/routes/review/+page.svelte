@@ -23,7 +23,7 @@
 
     let title = $state(reviewState.title || '');
     let sourceLabel = $state('');
-    let setType = $state<ExerciseType>('kwt');
+    let setType = $state<ExerciseType>(reviewState.type ?? 'kwt');
     let questions = $state<ParsedKWTQuestion[]>(
         reviewState.questions.map((q) => ({
             ...q,

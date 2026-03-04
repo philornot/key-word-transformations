@@ -14,7 +14,7 @@
 
     /** The exercise type currently selected via the URL search param, if any. */
     const activeType = $derived(
-        ($page.url.pathname.startsWith('/create/manual')
+        ($page.url.pathname.startsWith('/create/')
             ? ($page.url.searchParams.get('type') ?? 'kwt')
             : null) as ExerciseType | null,
     );
@@ -30,7 +30,7 @@
     <header class="header">
         <a href="/" class="logo">{t('nav.home')}</a>
         <nav class="nav">
-            <a href="/create/scan" class="nav-link">
+            <a href="/create/scan?type={activeType ?? 'kwt'}" class="nav-link">
                 <Camera size={16} weight="regular"/>{t('nav.scan')}
                 <span class="beta-badge">{t('common.beta')}</span>
             </a>
