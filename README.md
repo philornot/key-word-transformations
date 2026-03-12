@@ -51,8 +51,8 @@ Local machine (Windows / macOS / Linux)
   │  ssh server           → installs deps, restarts PM2
   │
   └─▶ Server (RPi4 / any Linux)
-        /home/filip/kwt-build/   ← deployed artefacts
-        /home/filip/kwt-data/    ← database + backups (persists across deploys)
+        /home/pi/kwt-build/   ← deployed artefacts
+        /home/pi/kwt-data/    ← database + backups (persists across deploys)
         PM2                      ← keeps the app running
         Nginx                    ← reverse proxy
         Cloudflare Tunnel        ← HTTPS, no router config needed
@@ -71,7 +71,7 @@ Install [yq](https://github.com/mikefarah/yq) on your local machine (used to rea
 Make sure your SSH alias works before running any script:
 
 ```bash
-ssh frpi4
+ssh rpi
 ```
 
 ### One-time setup
@@ -96,9 +96,9 @@ project:
   name: kwt
 
 remote:
-  ssh_alias: frpi4
-  deploy_path: /home/filip/kwt-build
-  data_path: /home/filip/kwt-data
+  ssh_alias: rpi
+  deploy_path: /home/pi/kwt-build
+  data_path: /home/pi/kwt-data
 
 app:
   port: 3000
@@ -140,7 +140,7 @@ Tunnel, which requires no router configuration and provides HTTPS automatically.
 **Install Cloudflare Tunnel on the server:**
 
 ```bash
-ssh frpi4
+ssh rpi
 
 curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64 \
   -o cloudflared
@@ -155,7 +155,7 @@ Create `~/.cloudflared/config.yml` on the server:
 
 ```yaml
 tunnel: <tunnel-id>
-credentials-file: /home/filip/.cloudflared/<tunnel-id>.json
+credentials-file: /home/pi/.cloudflared/<tunnel-id>.json
 
 ingress:
   - hostname: your-domain.com
@@ -196,16 +196,16 @@ sudo certbot --nginx -d your-domain.com
 ### Checking logs
 
 ```bash
-ssh frpi4 'pm2 logs kwt'        # live log stream
-ssh frpi4 'pm2 status'          # process status
-ssh frpi4 'pm2 restart kwt'     # manual restart
+ssh rpi 'pm2 logs kwt'        # live log stream
+ssh rpi 'pm2 status'          # process status
+ssh rpi 'pm2 restart kwt'     # manual restart
 ```
 
 ---
 
 ## Database
 
-The SQLite database lives at `data_path/worksheet.db` on the server (default: `/home/filip/kwt-data/worksheet.db`). It
+The SQLite database lives at `data_path/worksheet.db` on the server (default: `/home/pi/kwt-data/worksheet.db`). It
 persists across deploys because it is outside the deploy directory.
 
 Backups are created automatically before each deploy and stored in `data_path/backups/`. The number of backups retained
@@ -214,5 +214,5 @@ is controlled by `backup.keep_days` in `deploy.config.yaml`.
 To copy the production database locally:
 
 ```bash
-scp frpi4:/home/filip/kwt-data/worksheet.db ./worksheet.db
+scp rpi:/home/pi/kwt-data/worksheet.db ./worksheet.db
 ```
