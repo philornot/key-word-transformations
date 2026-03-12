@@ -2,7 +2,7 @@
  * @fileoverview Shared type definitions for Key Word Transformation exercises.
  */
 
-import type {ExerciseType} from '$lib/constants.js';
+import type { ExerciseType } from '$lib/constants.js';
 
 /**
  * A single KWT question as returned from the OCR/parse pipeline,
@@ -97,6 +97,13 @@ export interface AnswerResult {
     given: string | null;
     correctAnswer: string;
     alternativeAnswers: string[];
+    /**
+     * Surface-form variants of the answer the user submitted that they did
+     * not write — computed from the parenthesised optional segments in the
+     * stored answer (e.g. "so noisy outside (that)").
+     * Empty when the matched answer has no optional parts, or when wrong.
+     */
+    siblingVariants: string[];
     isCorrect: boolean;
     /** True when `given` exactly matches one of the teacher-supplied wrong examples. */
     isKnownWrongAnswer: boolean;

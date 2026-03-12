@@ -1,0 +1,30 @@
+# ─────────────────────────────────────────────────────────────────
+# KWT deployment configuration
+# Rename this file to deploy.config.yaml and edit it directly or run: bash scripts/setup.sh
+# ─────────────────────────────────────────────────────────────────
+
+project:
+  # Name used for the PM2 process and log files.
+  name: kwt
+
+remote:
+  # SSH alias or user@host — whatever you use in `ssh <this>`.
+  ssh_alias: pi
+  # Directory on the remote where build artefacts are deployed.
+  deploy_path: /home/pi/kwt-build
+  # Persistent data directory — kept outside deploy_path so it
+  # survives re-deployments. Houses worksheet.db and backups.
+  data_path: /home/pi/kwt-data
+
+app:
+  port: 3000
+  # Full public URL of the app (required by SvelteKit for CSRF protection).
+  origin: ""
+  # Admin panel password — leave empty to disable the admin panel.
+  admin_password: ""
+
+backup:
+  # Automatically back up the SQLite database before each deploy.
+  enabled: true
+  # Number of daily backup files to keep (older ones are deleted).
+  keep_days: 7

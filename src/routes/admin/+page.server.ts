@@ -1,9 +1,11 @@
-import type {Actions, PageServerLoad} from './$types.js';
-import type {Cookies} from '@sveltejs/kit';
-import {error, fail, redirect} from '@sveltejs/kit';
-import {db} from '$lib/server/db.js';
-import type {SetSummary} from '$lib/types.js';
-import {env} from '$env/dynamic/private';
+import type { Actions, PageServerLoad } from './$types.js';
+import type { Cookies } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
+import { db } from '$lib/server/db.js';
+import type { SetSummary } from '$lib/types.js';
+import type { ExerciseType } from '$lib/constants.js';
+import { EXERCISE_TYPES } from '$lib/constants.js';
+import { env } from '$env/dynamic/private';
 
 const PASSWORD = env.ADMIN_PASSWORD;
 const COOKIE = 'kwt_admin';
@@ -20,19 +22,25 @@ function isAuthenticated(cookies: Cookies): boolean {
 }
 
 type SetRow = {
-    slug: string; title: string; source_label: string | null; created_at: string; question_count: number;
+    slug: string;
+    title: string;
+    source_label: string | null;
+    type: string;
+    created_at: string;
+    question_count: number;
 };
 
-export const load: PageServerLoad = ({cookies}) => {
+export const load: PageServerLoad = ({ cookies }) => {
     if (!PASSWORD) throw error(503, 'Admin access is not configured (ADMIN_PASSWORD not set).');
 
     const authenticated = isAuthenticated(cookies);
-    if (!authenticated) return {authenticated: false, sets: [] as SetSummary[]};
+    if (!authenticated) return { authenticated: false, sets: [] as SetSummary[] };
 
     const rows = db.prepare(`
         SELECT s.slug,
                s.title,
                s.source_label,
+               s.type,
                s.created_at,
                COUNT(q.id) AS question_count
         FROM sets s
@@ -46,11 +54,12 @@ export const load: PageServerLoad = ({cookies}) => {
         slug: r.slug,
         title: r.title,
         sourceLabel: r.source_label,
+        type: (EXERCISE_TYPES.includes(r.type as ExerciseType) ? r.type : 'kwt') as ExerciseType,
         questionCount: r.question_count,
         createdAt: r.created_at,
     }));
 
-    return {authenticated: true, sets};
+    return { authenticated: true, sets };
 };
 
 export const actions: Actions = {
@@ -58,14 +67,17 @@ export const actions: Actions = {
      * Validates the submitted password, sets a session cookie,
      * and redirects back to the admin panel.
      */
-    login: async ({request, cookies}: { request: Request; cookies: Cookies }) => {
+    login: async ({ request, cookies }: { request: Request; cookies: Cookies }) => {
         const data = await request.formData();
         const password = data.get('password')?.toString() ?? '';
 
-        if (password !== PASSWORD) return fail(401, {loginError: 'Nieprawidłowe hasło.'});
+        if (password !== PASSWORD) return fail(401, { loginError: 'Nieprawidłowe hasło.' });
 
         cookies.set(COOKIE, PASSWORD!, {
-            path: '/', httpOnly: true, sameSite: 'strict', maxAge: 60 * 60 * 8,
+            path: '/',
+            httpOnly: true,
+            sameSite: 'strict',
+            maxAge: 60 * 60 * 8,
         });
 
         redirect(303, '/admin');
@@ -80,32 +92,32 @@ export const actions: Actions = {
      *
      * Requires an active admin session.
      */
-    deleteSet: async ({request, cookies}: { request: Request; cookies: Cookies }) => {
-        if (!isAuthenticated(cookies)) return fail(403, {error: 'Unauthorized.'});
+    deleteSet: async ({ request, cookies }: { request: Request; cookies: Cookies }) => {
+        if (!isAuthenticated(cookies)) return fail(403, { error: 'Unauthorized.' });
 
         const data = await request.formData();
         const slug = data.get('slug')?.toString() ?? '';
-        if (!slug) return fail(400, {error: 'Missing slug.'});
+        if (!slug) return fail(400, { error: 'Missing slug.' });
 
         const set = db
             .prepare('SELECT id FROM sets WHERE slug = ? AND is_public = 1')
             .get(slug) as { id: number } | undefined;
 
-        if (!set) return fail(404, {error: 'Set not found.'});
+        if (!set) return fail(404, { error: 'Set not found.' });
 
         db.transaction(() => {
             db.prepare('DELETE FROM attempts WHERE set_id = ?').run(set.id);
             db.prepare('DELETE FROM sets WHERE id = ?').run(set.id);
         })();
 
-        return {deleted: slug};
+        return { deleted: slug };
     },
 
     /**
      * Clears the admin session cookie and redirects to home.
      */
-    logout: async ({cookies}: { cookies: Cookies }) => {
-        cookies.delete(COOKIE, {path: '/'});
+    logout: async ({ cookies }: { cookies: Cookies }) => {
+        cookies.delete(COOKIE, { path: '/' });
         redirect(303, '/');
     },
 };

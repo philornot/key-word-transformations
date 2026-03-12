@@ -25,7 +25,7 @@
     const setType = $derived(data.set.type as ExerciseType);
 
     let nextKey = 0;
-    let title = $state(data.set.title);
+    let title = $state(data.set.title);     // Intentional: we want a local editable copy, not a live binding to server data.
     let sourceLabel = $state(data.set.sourceLabel ?? '');
     let questions = $state<DraftQuestion[]>(
         (data.set.questions as KWTQuestion[]).map((q: KWTQuestion) => ({

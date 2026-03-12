@@ -95,7 +95,19 @@ function fixOcrArtefacts(text: string): string {
  */
 export function parseQuestions(rawText: string, type: ExerciseType = 'kwt',): ParsedKWTQuestion[] {
     const cleaned = fixOcrArtefacts(rawText);
-    const lines = cleaned
+
+    // Tesseract sometimes merges consecutive question blocks into a single line
+    // when it fails to segment the page properly (e.g. PSM 3 reads across
+    // sidebar labels and margin notes). Insert a newline before any
+    // question-number pattern that appears mid-line so splitIntoBlocks can
+    // find block boundaries. The [©=]? handles common gap-line artefacts that
+    // Tesseract emits just before the next question number.
+    const withBreaks = cleaned.replace(
+        /(?<=\S)\s*[©=]?\s*(\d+(?:[.]\d+)+[.)]\s)/g,
+        '\n$1',
+    );
+
+    const lines = withBreaks
         .split('\n')
         .map((l) => l.trim())
         .filter((l) => l.length > 0)
@@ -128,8 +140,8 @@ export function parseQuestions(rawText: string, type: ExerciseType = 'kwt',): Pa
 function isSidebarNoise(line: string): boolean {
     if (SIDEBAR_NOISE_RE.test(line)) return true;
     const tokens = line.split(/\s+/);
-    if (tokens.length <= 5 && tokens.every((tok) => tok.length <= 3)) return true;
-    return false;
+    return tokens.length <= 5 && tokens.every((tok) => tok.length <= 3);
+
 }
 
 // ---------------------------------------------------------------------------
@@ -169,7 +181,7 @@ function splitIntoBlocks(lines: string[]): string[][] {
  *  - Find the first line that looks like a standalone keyword (KEYWORD_RE).
  *  - Lines before it → sentence1 (joined with spaces).
  *  - Lines after it  → sentence2 (joined with spaces).
- *  - Normalise any gap marker in sentence2 to `______`.
+ *  - Normalize any gap marker in sentence2 to `______`.
  *  - If no gap is found, insert a fallback gap.
  *
  * @param block - Lines belonging to one numbered question.
@@ -229,7 +241,7 @@ function parseKwtBlock(block: string[]): ParsedKWTQuestion {
  * editor shows a single gap input.
  *
  * sentence1 and keyword are left empty — the hint lives inside the sentence
- * as a parenthesised segment, e.g. `(take / umbrella)` or `(z pewnością)`.
+ * as a parenthesized segment, e.g. `(take / umbrella)` or `(z pewnością)`.
  *
  * @param block - Lines belonging to one numbered question.
  * @returns Parsed gap question draft.
@@ -247,7 +259,7 @@ function parseGapBlock(block: string[]): ParsedKWTQuestion {
 
     for (const line of allLines) {
         const normalised = line.replace(GAP_RE, CANONICAL_GAP).trim();
-        // A pure-gap line is one that, after normalisation, is only `______`
+        // A pure-gap line is one that, after normalization, is only `______`
         // (possibly with leading/trailing spaces). These represent the second
         // printed underline of a two-line answer blank.
         if (normalised === CANONICAL_GAP) {
@@ -293,7 +305,7 @@ function parseGapBlock(block: string[]): ParsedKWTQuestion {
 // ---------------------------------------------------------------------------
 
 /**
- * Normalises gap markers in a sentence string to the canonical `______` form.
+ * Normalizes gap markers in a sentence string to the canonical `______` form.
  * If no gap marker is found, inserts a fallback gap at a heuristic position.
  *
  * @param raw - Raw sentence string, possibly containing OCR gap artefacts.
