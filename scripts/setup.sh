@@ -96,7 +96,7 @@ echo ""
 success "deploy.config.yaml updated."
 
 # ── Step 2: protect the config ───────────────────────────────────────────────
-
+# todo: Consider using { cmd1; cmd2; } >> file instead of individual redirects.
 GITIGNORE="$SCRIPT_DIR/../.gitignore"
 if ! grep -q "deploy.config.yaml" "$GITIGNORE" 2>/dev/null; then
     echo "" >> "$GITIGNORE"
@@ -136,7 +136,7 @@ echo ""
 info "Connecting to $SSH_ALIAS..."
 
 if [[ "$RUNTIME" == "bun" ]]; then
-
+# todo: Quote 'REMOTE' to make here document expansions happen on the server side rather than on the client.
 ssh "$SSH_ALIAS" /bin/bash << REMOTE
 set -euo pipefail
 
