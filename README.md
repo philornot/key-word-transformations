@@ -1,6 +1,7 @@
 # Key Word Transformations
 
-A web application for creating and solving Cambridge B2/C1 Key Word Transformation exercises. Teachers upload a worksheet photo, OCR detects the questions automatically, and students receive a shareable interactive test link.
+A web application for creating and solving Cambridge B2/C1 Key Word Transformation exercises. Teachers upload a
+worksheet photo, OCR detects the questions automatically, and students receive a shareable interactive test link.
 
 ## Tech stack
 
@@ -9,7 +10,8 @@ A web application for creating and solving Cambridge B2/C1 Key Word Transformati
 - [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) — embedded database
 - [Tesseract.js](https://tesseract.projectnaptha.com) — OCR engine
 - [PM2](https://pm2.keymetrics.io) — process manager on the server
-- [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) — HTTPS without port forwarding (recommended)
+- [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) — HTTPS without
+  port forwarding (recommended)
 
 ---
 
@@ -36,7 +38,8 @@ ADMIN_PASSWORD=any_local_password
 
 ## Deployment
 
-The project deploys to a Linux server (tested on Raspberry Pi 4) using two scripts. **Both scripts are run on your local machine** — they connect to the server over SSH.
+The project deploys to a Linux server (tested on Raspberry Pi 4) using two scripts. **Both scripts are run on your local
+machine** — they connect to the server over SSH.
 
 ### Architecture
 
@@ -59,11 +62,11 @@ Local machine (Windows / macOS / Linux)
 
 Install [yq](https://github.com/mikefarah/yq) on your local machine (used to read `deploy.config.yaml`):
 
-| Platform | Command |
-|---|---|
-| macOS | `brew install yq` |
-| Windows | `winget install MikeFarah.yq` (then restart Git Bash) |
-| Linux | `snap install yq` |
+| Platform | Command                                               |
+|----------|-------------------------------------------------------|
+| macOS    | `brew install yq`                                     |
+| Windows  | `winget install MikeFarah.yq` (then restart Git Bash) |
+| Linux    | `snap install yq`                                     |
 
 Make sure your SSH alias works before running any script:
 
@@ -131,7 +134,8 @@ bash scripts/deploy.sh --check  # dry run, nothing is changed
 
 ### After the first deploy — Nginx and HTTPS
 
-After the first successful deploy you need to set up a reverse proxy and HTTPS. The recommended approach is Cloudflare Tunnel, which requires no router configuration and provides HTTPS automatically.
+After the first successful deploy you need to set up a reverse proxy and HTTPS. The recommended approach is Cloudflare
+Tunnel, which requires no router configuration and provides HTTPS automatically.
 
 **Install Cloudflare Tunnel on the server:**
 
@@ -201,9 +205,11 @@ ssh frpi4 'pm2 restart kwt'     # manual restart
 
 ## Database
 
-The SQLite database lives at `data_path/worksheet.db` on the server (default: `/home/filip/kwt-data/worksheet.db`). It persists across deploys because it is outside the deploy directory.
+The SQLite database lives at `data_path/worksheet.db` on the server (default: `/home/filip/kwt-data/worksheet.db`). It
+persists across deploys because it is outside the deploy directory.
 
-Backups are created automatically before each deploy and stored in `data_path/backups/`. The number of backups retained is controlled by `backup.keep_days` in `deploy.config.yaml`.
+Backups are created automatically before each deploy and stored in `data_path/backups/`. The number of backups retained
+is controlled by `backup.keep_days` in `deploy.config.yaml`.
 
 To copy the production database locally:
 
