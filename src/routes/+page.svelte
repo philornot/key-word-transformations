@@ -3,14 +3,7 @@
     import type {PageData} from './$types.js';
     import type {ExerciseType} from '$lib/constants.js';
     import {EXERCISE_TYPES} from '$lib/constants.js';
-    import {
-        ArrowRightIcon,
-        CameraIcon,
-        LinkIcon,
-        MagnifyingGlassIcon,
-        RocketLaunchIcon,
-        UploadIcon,
-    } from 'phosphor-svelte';
+    import {ArrowRightIcon, LinkIcon, PencilSimpleIcon} from 'phosphor-svelte';
 
     let {data} = $props<{ data: PageData }>();
 
@@ -52,35 +45,49 @@
     }
 
     const anyPublicSets = $derived(EXERCISE_TYPES.some(hasAny));
+
+    /** Human-readable descriptions shown in the exercise type pills on the hero. */
+    const TYPE_DESCRIPTIONS: Record<ExerciseType, string> = {
+        kwt: 'Transformacje słów kluczowych',
+        grammar: 'Uzupełnianie zdań',
+        translation: 'Tłumaczenie fragmentów',
+    };
 </script>
 
 <svelte:head>
-    <title>Key word transformations</title>
+    <title>angmatura — maturalne zadania z angielskiego</title>
 </svelte:head>
 
 <div class="home">
 
-    <!-- ── Compact hero ──────────────────────────────────────────────── -->
+    <!-- ── Hero ────────────────────────────────────────────────────────── -->
     <section class="hero">
         <div class="hero-text">
-            <h1 class="hero-title">{t('home.title')}</h1>
-            <p class="hero-sub">{t('home.subtitle')}</p>
+            <h1 class="hero-title">Maturalne zadania<br>z angielskiego</h1>
+            <p class="hero-sub">
+                Rozwiązuj zestawy z transformacji słów kluczowych, gramatykalizacji
+                i tłumaczeń — wszystkie typy zadań z angielskiego na poziomie rozszerzonym.
+            </p>
         </div>
-        <div class="cta-row">
-            <a href="/create/scan" class="cta-card cta-ghost">
-                <CameraIcon size={24} weight="duotone"/>
-                <div>
-                    <strong>
-                        {t('home.scanTitle')}
-                        <span class="beta-pill">BETA</span>
-                    </strong>
-                    <span>{t('home.scanDesc')}</span>
+
+        <div class="type-pills">
+            {#each EXERCISE_TYPES as type}
+                <div class="type-pill">
+                    <span class="pill-badge">{typeLabel(type)}</span>
+                    <span class="pill-desc">{TYPE_DESCRIPTIONS[type]}</span>
                 </div>
+            {/each}
+        </div>
+
+        <div class="hero-cta">
+            <a href="/create/manual" class="btn-primary cta-btn">
+                <PencilSimpleIcon size={18} weight="regular"/>
+                Utwórz własny zestaw
             </a>
         </div>
     </section>
 
-    <!-- ── Sets listing ──────────────────────────────────────────────── -->
+    <!-- ── Sets listing ─────────────────────────────────────────────────── -->
     <section class="sets-section">
         <h2 class="section-title">{t('home.setsTitle')}</h2>
 
@@ -95,6 +102,7 @@
                     <div class="type-section">
                         <h3 class="type-heading">
                             <span class="type-badge">{typeLabel(type)}</span>
+                            <span class="type-desc">{TYPE_DESCRIPTIONS[type]}</span>
                         </h3>
                         <div class="sets-grid">
                             {#each data.setsByType[type] as s (s.slug)}
@@ -131,38 +139,6 @@
         {/if}
     </section>
 
-    <!-- ── How it works ──────────────────────────────────────────────── -->
-    <section class="how">
-        <h2 class="section-title">{t('home.howItWorksTitle')}</h2>
-        <div class="steps">
-            <div class="step card">
-                <div class="step-icon">
-                    <UploadIcon size={22} weight="duotone"/>
-                </div>
-                <div class="step-num">1</div>
-                <strong>{t('home.step1')}</strong>
-                <p>{t('home.step1desc')}</p>
-            </div>
-            <div class="step-arrow">→</div>
-            <div class="step card">
-                <div class="step-icon">
-                    <MagnifyingGlassIcon size={22} weight="duotone"/>
-                </div>
-                <div class="step-num">2</div>
-                <strong>{t('home.step2')}</strong>
-                <p>{t('home.step2desc')}</p>
-            </div>
-            <div class="step-arrow">→</div>
-            <div class="step card">
-                <div class="step-icon">
-                    <RocketLaunchIcon size={22} weight="duotone"/>
-                </div>
-                <div class="step-num">3</div>
-                <strong>{t('home.step3')}</strong>
-                <p>{t('home.step3desc')}</p>
-            </div>
-        </div>
-    </section>
 </div>
 
 <style>
@@ -176,91 +152,85 @@
     .hero {
         display: flex;
         flex-direction: column;
-        gap: var(--space-6);
-        padding: var(--space-6) 0 0;
+        gap: var(--space-8);
+        padding: var(--space-8) 0 0;
     }
 
     .hero-title {
-        font-size: var(--font-size-4xl);
+        font-size: var(--font-size-hero);
         font-weight: var(--font-weight-black);
         line-height: var(--line-height-tight);
         letter-spacing: var(--letter-spacing-tight);
     }
 
     .hero-sub {
-        font-size: var(--font-size-base);
+        font-size: var(--font-size-md);
         color: var(--color-text-muted);
-        max-width: 560px;
+        max-width: 520px;
         line-height: var(--line-height-base);
-        margin-top: var(--space-2);
+        margin-top: var(--space-3);
     }
 
-    .cta-row {
+    /* ── Exercise type pills ──────────────────────────────────────────── */
+    .type-pills {
         display: flex;
         gap: var(--space-3);
         flex-wrap: wrap;
     }
 
-    .cta-card {
-        flex: 0 1 auto;
-        display: flex;
-        align-items: center;
-        gap: var(--space-3);
-        padding: var(--space-4) var(--space-5);
-        border-radius: var(--radius-xl);
-        text-decoration: none;
-        transition: transform var(--transition-base), box-shadow var(--transition-base);
-    }
-
-    .cta-card:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-lg);
-        text-decoration: none;
-    }
-
-    .cta-ghost {
-        background: var(--color-surface);
-        color: var(--color-text);
-        border: 2px solid var(--color-border);
-        box-shadow: var(--shadow-sm);
-    }
-
-    .cta-card div {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-
-    .cta-ghost strong {
-        color: var(--color-text);
-        font-size: var(--font-size-sm);
+    .type-pill {
         display: flex;
         align-items: center;
         gap: var(--space-2);
-    }
-
-    .cta-ghost span {
-        color: var(--color-text-muted);
-        font-size: var(--font-size-xs);
-    }
-
-    .beta-pill {
-        background: var(--color-warning);
-        color: #fff;
-        font-size: 0.6rem;
-        font-weight: var(--font-weight-black);
-        letter-spacing: var(--letter-spacing-wider);
-        padding: 1px 5px;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
         border-radius: var(--radius-full);
-        line-height: 1.4;
-        vertical-align: middle;
+        padding: var(--space-2) var(--space-4);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .pill-badge {
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-black);
+        color: var(--color-primary);
+        letter-spacing: var(--letter-spacing-wide);
+        text-transform: uppercase;
+    }
+
+    .pill-desc {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-muted);
+    }
+
+    /* ── Hero CTA ─────────────────────────────────────────────────────── */
+    .hero-cta {
+        display: flex;
+        gap: var(--space-3);
+        align-items: center;
+    }
+
+    .cta-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-3) var(--space-6);
+        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-semibold);
+        border-radius: var(--radius-lg);
+        text-decoration: none;
+        transition: background var(--transition-base), transform var(--transition-fast);
+    }
+
+    .cta-btn:hover {
+        text-decoration: none;
+        transform: translateY(-1px);
     }
 
     /* ── Section shared ───────────────────────────────────────────────── */
     .section-title {
         font-size: var(--font-size-xl);
         font-weight: var(--font-weight-extrabold);
-        margin-bottom: var(--space-4);
+        margin-bottom: var(--space-6);
     }
 
     /* ── Sets section ─────────────────────────────────────────────────── */
@@ -289,6 +259,12 @@
         border-radius: var(--radius-full);
         letter-spacing: var(--letter-spacing-wide);
         text-transform: uppercase;
+        flex-shrink: 0;
+    }
+
+    .type-desc {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-muted);
     }
 
     .no-sets {
@@ -402,80 +378,17 @@
         white-space: nowrap;
     }
 
-    /* ── How it works ─────────────────────────────────────────────────── */
-    .how {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .steps {
-        display: flex;
-        align-items: center;
-        gap: var(--space-3);
-        flex-wrap: wrap;
-    }
-
-    .step {
-        flex: 1;
-        min-width: 180px;
-        max-width: 240px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        gap: var(--space-2);
-        padding: var(--space-5) var(--space-4);
-        position: relative;
-    }
-
-    .step-icon {
-        color: var(--color-primary);
-    }
-
-    .step-num {
-        position: absolute;
-        top: var(--space-3);
-        right: var(--space-3);
-        background: var(--color-primary-muted);
-        color: var(--color-primary);
-        font-size: var(--font-size-xs);
-        font-weight: var(--font-weight-black);
-        width: 20px;
-        height: 20px;
-        border-radius: var(--radius-full);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .step strong {
-        font-size: var(--font-size-sm);
-        font-weight: var(--font-weight-bold);
-    }
-
-    .step p {
-        font-size: var(--font-size-xs);
-        color: var(--color-text-muted);
-        line-height: var(--line-height-snug);
-    }
-
-    .step-arrow {
-        font-size: var(--font-size-xl);
-        color: var(--color-neutral-400);
-        flex-shrink: 0;
-    }
-
     @media (max-width: 600px) {
         .hero-title {
-            font-size: var(--font-size-2xl);
+            font-size: var(--font-size-3xl);
         }
 
-        .step-arrow {
-            display: none;
-        }
-
-        .step {
-            max-width: 100%;
+        .type-pill {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: var(--space-1);
+            border-radius: var(--radius-lg);
+            padding: var(--space-3);
         }
     }
 </style>

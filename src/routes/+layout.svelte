@@ -3,10 +3,16 @@
     import '$lib/global.css';
     import {locale, t} from '$lib/i18n.svelte.js';
     import {mode} from '$lib/mode.svelte.js';
-    import {Camera, PencilSimple, SignOut, Translate} from 'phosphor-svelte';
+    import {PencilSimple, SignOut, Translate} from 'phosphor-svelte';
     import {page} from '$app/stores';
     import type {ExerciseType} from '$lib/constants.js';
     import {EXERCISE_TYPES} from '$lib/constants.js';
+
+    /**
+     * Feature flag — flip to `true` to restore the OCR scan flow in the UI.
+     * The /create/scan route itself remains functional (accessible by direct URL).
+     */
+    const SCAN_ENABLED = false;
 
     /** Hide mode tabs on test-taking and result pages — switching mode there is irrelevant. */
     const showModeTabs = $derived(
@@ -39,7 +45,7 @@
 
 <div class="shell">
     <header class="header">
-        <a href="/" class="logo">{t('nav.home')}</a>
+        <a href="/" class="logo">angmatura</a>
 
         <nav class="nav">
             <!-- Mode tabs — hidden on test-taking and result pages -->
@@ -57,12 +63,13 @@
                 </div>
             {/if}
 
-            <!-- Action buttons — navigate using current mode -->
-            <a href="/create/scan" class="nav-link">
-                <Camera size={16} weight="regular"/>
-                {t('nav.scan')}
-                <span class="beta-badge">{t('common.beta')}</span>
-            </a>
+            {#if SCAN_ENABLED}
+                <a href="/create/scan" class="nav-link">
+                    {t('nav.scan')}
+                    <span class="beta-badge">{t('common.beta')}</span>
+                </a>
+            {/if}
+
             <a href="/create/manual" class="nav-link nav-link--primary">
                 <PencilSimple size={16} weight="regular"/>
                 Utwórz zestaw
@@ -89,7 +96,7 @@
     </main>
 
     <footer class="footer">
-        <p>Key word transformations</p>
+        <p>angmatura.pl — maturalne zadania z angielskiego</p>
     </footer>
 </div>
 
@@ -116,6 +123,7 @@
         font-weight: var(--font-weight-extrabold);
         color: var(--color-text);
         white-space: nowrap;
+        letter-spacing: var(--letter-spacing-tight);
     }
 
     .nav {

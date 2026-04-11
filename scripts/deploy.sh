@@ -88,7 +88,15 @@ cd "$PROJECT_ROOT"
 
 if [[ "$SKIP_BUILD" == false ]]; then
     info "Building..."
-    bun run build
+
+    if command -v bun &>/dev/null; then
+        bun run build
+    elif command -v npm &>/dev/null; then
+        npm run build
+    else
+        die "Neither bun nor npm found locally. Install one to build."
+    fi
+
     success "Build complete."
     echo ""
 fi
@@ -104,7 +112,11 @@ BACKUP_DIR="${DATA_PATH}/backups"
 mkdir -p "\$BACKUP_DIR"
 if [[ -f "\$DB" ]]; then
     STAMP=\$(date +%Y%m%d_%H%M%S)
-    cp "\$DB" "\$BACKUP_DIR/worksheet_\${STAMP}.db"
+    if command -v sqlite3 &>/dev/null; then
+        sqlite3 "\$DB" ".backup '\$BACKUP_DIR/worksheet_\${STAMP}.db'"
+    else
+        cp "\$DB" "\$BACKUP_DIR/worksheet_\${STAMP}.db"
+    fi
     echo "[remote] Backup saved: worksheet_\${STAMP}.db"
     find "\$BACKUP_DIR" -name "worksheet_*.db" -mtime +${BACKUP_KEEP_DAYS} -delete
     echo "[remote] Old backups (>${BACKUP_KEEP_DAYS}d) cleaned up."
@@ -117,7 +129,7 @@ fi
 
 # ── Step 3: Rsync ─────────────────────────────────────────────────────────────
 
-RSYNC_OPTS=(-av --progress --delete --ignore-missing-args)
+RSYNC_OPTS=(-a --stats --delete --ignore-missing-args)
 [[ "$DRY_RUN" == true ]] && RSYNC_OPTS+=(--dry-run)
 
 info "Syncing files to $SSH_ALIAS:$DEPLOY_PATH..."
