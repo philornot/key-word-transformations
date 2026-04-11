@@ -163,7 +163,7 @@
         <p class="q-count">{t('set.questions', {n: data.set.questions.length})}</p>
         <a href="/edit/{data.set.slug}" class="edit-link">
             <PencilSimple size={14} weight="bold"/>
-            Edytuj
+            {t('set.editBtn')}
         </a>
         {#if isKwt && data.set.questions[0]}
             <p class="instructions">

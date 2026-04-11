@@ -104,7 +104,7 @@
         try {
             const questions = parseQuestions(text, mode.type);
             if (questions.length === 0) {
-                errorMessage = 'Nie udało się wykryć żadnych pytań w wklejonym tekście. Sprawdź format lub utwórz zestaw ręcznie.';
+                errorMessage = t('scan.noQuestionsDetected');
                 return;
             }
             reviewState.questions = questions;
@@ -150,12 +150,10 @@
             }
 
             const data: UploadResponse = await res.json();
-            // Parse using the active mode — the server always returns rawText
-            // but does not know which exercise type the user selected.
             const questions = parseQuestions(data.rawText, mode.type);
 
             if (questions.length === 0) {
-                errorMessage = 'Nie udało się wykryć żadnych pytań w tym pliku. Sprawdź jakość zdjęcia lub utwórz zestaw ręcznie.';
+                errorMessage = t('scan.noQuestionsInFile');
                 return;
             }
 
@@ -170,24 +168,18 @@
             isProcessing = false;
         }
     }
-
-    const typeLabels: Record<string, string> = {
-        kwt: 'KWT',
-        grammar: 'Gramatykalizacja',
-        translation: 'Tłumaczenia',
-    };
 </script>
 
 <svelte:window onpaste={onGlobalPaste}/>
 
 <svelte:head>
-    <title>{t('scan.title')} — {typeLabels[mode.type]} — Key word transformations</title>
+    <title>{t('scan.title')} — {t(`exerciseType.${mode.type}`)} — Key word transformations</title>
 </svelte:head>
 
 <div class="scan-page">
     <div class="page-title-row">
         <h1>{t('scan.title')}</h1>
-        <span class="type-badge">{typeLabels[mode.type]}</span>
+        <span class="type-badge">{t(`exerciseType.${mode.type}`)}</span>
     </div>
     <p class="subtitle">{t('scan.subtitle')}</p>
 
@@ -250,7 +242,7 @@
     {#if isProcessing && !selectedFile}
         <div class="processing-text">
             <CircleNotchIcon size={16} weight="bold" class="spin"/>
-            Analizuję tekst…
+            {t('scan.analyzingText')}
         </div>
     {/if}
 

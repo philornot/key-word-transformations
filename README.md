@@ -1,14 +1,19 @@
-# Key Word Transformations
+# angmatura — maturalne zadania z angielskiego
 
-A web application for creating and solving Cambridge B2/C1 Key Word Transformation exercises. Teachers upload a
-worksheet photo, OCR detects the questions automatically, and students receive a shareable interactive test link.
+A web application for creating and solving English exam exercises at B2/C1 level (Polish _matura rozszerzona_). Supports three exercise types:
+
+- **KWT** — Key Word Transformations (transformacje słów kluczowych)
+- **Gramatykalizacja** — Grammar completion (uzupełnianie zdań)
+- **Tłumaczenia** — Sentence translation (tłumaczenie fragmentów)
+
+Teachers create sets manually or by scanning a worksheet photo (OCR). Students receive a shareable link and submit answers in the browser. Results are graded instantly, with support for alternative answers and optional-segment variants (e.g. `"so noisy outside (that)"`).
 
 ## Tech stack
 
 - [SvelteKit](https://kit.svelte.dev) — full-stack framework
 - [Bun](https://bun.sh) — runtime and package manager
 - [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) — embedded database
-- [Tesseract.js](https://tesseract.projectnaptha.com) — OCR engine
+- [Tesseract.js](https://tesseract.projectnaptha.com) — OCR engine (scan flow, disabled in UI by default)
 - [PM2](https://pm2.keymetrics.io) — process manager on the server
 - [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) — HTTPS without
   port forwarding (recommended)
@@ -33,6 +38,10 @@ To enable the admin panel locally, create a `.env` file:
 ```env
 ADMIN_PASSWORD=any_local_password
 ```
+
+### Enabling the OCR scan flow
+
+The scan UI is hidden by default (`SCAN_ENABLED = false` in `src/routes/+layout.svelte`). The `/create/scan` route remains fully functional at its direct URL. To restore the nav link, flip that flag to `true`.
 
 ---
 
@@ -120,7 +129,7 @@ Each deploy:
 
 1. Builds the app locally with `bun run build`.
 2. Creates a timestamped backup of the database on the server.
-3. Rsyncs `build/`, `package.json`, and `bun.lockb` to the server.
+3. Rsyncs `build/`, `package.json`, and `bun.lock(b)` to the server.
 4. Installs production dependencies on the server.
 5. Restarts the PM2 process (or starts it if it is not running yet).
 6. Performs an HTTP health check against `app.origin`.
@@ -200,6 +209,17 @@ ssh rpi 'pm2 logs kwt'        # live log stream
 ssh rpi 'pm2 status'          # process status
 ssh rpi 'pm2 restart kwt'     # manual restart
 ```
+
+---
+
+## Admin panel
+
+Navigate to `/admin` and log in with `ADMIN_PASSWORD`. The panel lets you:
+
+- View and delete all public sets
+- Edit any set in-place (changes overwrite the original; link stays the same)
+
+Non-admin users can also open `/edit/[slug]` to fork any set — their changes are saved under a new slug and are private by default.
 
 ---
 

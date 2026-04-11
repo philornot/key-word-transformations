@@ -216,7 +216,9 @@
 
     <label class="field-label" for="s2-{index}">
         {t('review.sentence2')}
-        <span class="gap-hint">— wpisz <code>_</code> żeby wstawić lukę</span>
+        <span class="gap-hint">
+            {t('review.gapHintPre')} <code>_</code> {t('review.gapHintPost')}
+        </span>
     </label>
     <div class="s2-wrap">
         <textarea

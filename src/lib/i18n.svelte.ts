@@ -6,7 +6,10 @@ export const locale = $state<{ lang: 'pl' | 'en' }>({lang: 'pl'});
 
 const pl = {
     nav: {
-        home: 'Key word transformations', scan: 'Zeskanuj zadania',
+        home: 'Key word transformations',
+        scan: 'Zeskanuj zadania',
+        createSet: 'Utwórz zestaw',
+        logout: 'Wyloguj',
     }, exerciseType: {
         kwt: 'KWT',
         grammar: 'Gramatykalizacja',
@@ -17,6 +20,11 @@ const pl = {
     }, home: {
         title: 'Zamień kartkę z ćwiczeniami w interaktywny test',
         subtitle: 'Wgraj zdjęcie lub PDF kartki, a system automatycznie wykryje transformacje słów kluczowych. Popraw wynik i udostępnij link.',
+        heroTitle: 'Maturalne zadania z angielskiego',
+        heroSub: 'Rozwiązuj zestawy z transformacji słów kluczowych, gramatykalizacji i tłumaczeń — wszystkie typy zadań z angielskiego na poziomie rozszerzonym.',
+        createOwnSet: 'Utwórz własny zestaw',
+        noSetsAlt: 'Nie ma jeszcze żadnych zestawów do rozwiązania.',
+        noSetsSubAlt: 'Możesz stworzyć własny zestaw i podzielić się nim przez link.',
         scanTitle: 'Zeskanuj zadania',
         scanDesc: 'Wgraj zdjęcie lub PDF — OCR wykryje pytania automatycznie.',
         manualTitle: 'Utwórz ręcznie',
@@ -40,10 +48,14 @@ const pl = {
         browse: 'Wybierz plik',
         process: 'Wykryj pytania',
         processing: 'Przetwarzanie… (OCR może potrwać do 30 s)',
+        analyzingText: 'Analizuję tekst…',
         errorType: 'Nieobsługiwany format. Użyj JPEG, PNG, WEBP lub PDF.',
         errorSize: 'Plik jest za duży. Maksymalny rozmiar to 20 MB.',
         removeFile: 'Usuń plik',
         exerciseTypeLabel: 'Typ ćwiczenia',
+        pasteHintText: 'Wklej {shortcut} screenshot lub skopiowany tekst z pytaniami — zestaw zostanie wykryty automatycznie.',
+        noQuestionsDetected: 'Nie udało się wykryć żadnych pytań w wklejonym tekście. Sprawdź format lub utwórz zestaw ręcznie.',
+        noQuestionsInFile: 'Nie udało się wykryć żadnych pytań w tym pliku. Sprawdź jakość zdjęcia lub utwórz zestaw ręcznie.',
     }, review: {
         title: 'Sprawdź pytania',
         subtitle: '{n} pytań wykrytych — popraw błędy i uzupełnij poprawne odpowiedzi.',
@@ -78,6 +90,8 @@ const pl = {
         errAnswer: 'Poprawna odpowiedź jest wymagana.',
         questionNum: 'Pytanie #{n}',
         exerciseTypeLabel: 'Typ ćwiczenia w zestawie',
+        gapHintPre: '— wpisz',
+        gapHintPost: 'żeby wstawić lukę',
     }, manual: {
         title: 'Nowy zestaw',
         subtitle: 'Utwórz zestaw ćwiczeń bez skanowania.',
@@ -89,6 +103,16 @@ const pl = {
         publishing: 'Publikowanie…',
         addQuestion: 'Dodaj pytanie',
         empty: 'Brak pytań. Kliknij „Dodaj pytanie" poniżej.',
+    }, edit: {
+        titleAdmin: 'Edytuj zestaw',
+        titleUser: 'Edytuj kopię zestawu',
+        subtitleAdmin: 'Zmiany nadpisują oryginalny zestaw. Link pozostaje ten sam.',
+        subtitleUser: 'Twoje zmiany zostaną zapisane jako nowy zestaw pod nowym linkiem. Jeśli nic nie zmienisz, zostaniesz przekierowany do oryginału.',
+        saving: 'Zapisywanie…',
+        saveAdmin: 'Zapisz zestaw',
+        saveUser: 'Zapisz kopię',
+        headAdmin: 'Edytuj zestaw',
+        headUser: 'Edytuj kopię',
     }, set: {
         questions: '{n} pytań',
         submit: 'Sprawdź odpowiedzi',
@@ -102,6 +126,7 @@ const pl = {
         sentence2label: 'Uzupełnij:',
         warnTooFew: 'Za mało wyrazów — wpisano {n}, wymagane co najmniej {min}.',
         warnTooMany: 'Za dużo wyrazów — wpisano {n}, dozwolone co najwyżej {max}.',
+        editBtn: 'Edytuj',
     }, result: {
         title: 'Wyniki — {title}',
         breakdown: 'Szczegóły odpowiedzi',
@@ -123,7 +148,10 @@ const pl = {
 
 const en: typeof pl = {
     nav: {
-        home: 'Key word transformations', scan: 'Scan worksheet',
+        home: 'Key word transformations',
+        scan: 'Scan worksheet',
+        createSet: 'Create set',
+        logout: 'Log out',
     }, exerciseType: {
         kwt: 'KWT',
         grammar: 'Grammar',
@@ -134,6 +162,11 @@ const en: typeof pl = {
     }, home: {
         title: 'Turn a paper worksheet into an interactive test',
         subtitle: 'Upload a photo or PDF of your worksheet and the app auto-detects key word transformation exercises. Review, publish, share.',
+        heroTitle: 'English exam exercises',
+        heroSub: 'Practise key word transformations, grammar completion, and sentence translation — all exercise types from the Polish advanced English exam.',
+        createOwnSet: 'Create your own set',
+        noSetsAlt: 'No exercise sets available yet.',
+        noSetsSubAlt: 'You can create your own set and share it via link.',
         scanTitle: 'Scan worksheet',
         scanDesc: 'Upload a photo or PDF — OCR detects questions automatically.',
         manualTitle: 'Create manually',
@@ -157,10 +190,14 @@ const en: typeof pl = {
         browse: 'Browse files',
         process: 'Detect questions',
         processing: 'Processing… (OCR can take up to 30 s)',
+        analyzingText: 'Analysing text…',
         errorType: 'Unsupported file type. Use JPEG, PNG, WEBP, or PDF.',
         errorSize: 'File too large. Maximum size is 20 MB.',
         removeFile: 'Remove file',
         exerciseTypeLabel: 'Exercise type',
+        pasteHintText: 'Paste {shortcut} a screenshot or copied text with questions — the set will be detected automatically.',
+        noQuestionsDetected: 'No questions could be detected in the pasted text. Check the format or create a set manually.',
+        noQuestionsInFile: 'No questions could be detected in this file. Check the image quality or create a set manually.',
     }, review: {
         title: 'Review questions',
         subtitle: '{n} questions detected — fix any mistakes and fill in correct answers.',
@@ -195,6 +232,8 @@ const en: typeof pl = {
         errAnswer: 'Correct answer is required.',
         questionNum: 'Question #{n}',
         exerciseTypeLabel: 'Set exercise type',
+        gapHintPre: '— type',
+        gapHintPost: 'to insert a gap',
     }, manual: {
         title: 'New set',
         subtitle: 'Create an exercise set without scanning.',
@@ -206,6 +245,16 @@ const en: typeof pl = {
         publishing: 'Publishing…',
         addQuestion: 'Add question',
         empty: 'No questions yet. Click "Add question" below.',
+    }, edit: {
+        titleAdmin: 'Edit set',
+        titleUser: 'Edit a copy',
+        subtitleAdmin: 'Changes overwrite the original set. The link stays the same.',
+        subtitleUser: "Your changes will be saved as a new set with a new link. If nothing changes, you'll be redirected to the original.",
+        saving: 'Saving…',
+        saveAdmin: 'Save set',
+        saveUser: 'Save copy',
+        headAdmin: 'Edit set',
+        headUser: 'Edit copy',
     }, set: {
         questions: '{n} questions',
         submit: 'Submit answers',
@@ -219,6 +268,7 @@ const en: typeof pl = {
         sentence2label: 'Complete:',
         warnTooFew: 'Too few words — you typed {n}, minimum is {min}.',
         warnTooMany: 'Too many words — you typed {n}, maximum is {max}.',
+        editBtn: 'Edit',
     }, result: {
         title: 'Results — {title}',
         breakdown: 'Answer breakdown',

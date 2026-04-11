@@ -133,16 +133,10 @@
             isPublishing = false;
         }
     }
-
-    const typeLabels: Record<string, string> = {
-        kwt: 'KWT',
-        grammar: 'Gramatykalizacja',
-        translation: 'Tłumaczenia',
-    };
 </script>
 
 <svelte:head>
-    <title>{t('manual.title')} — {typeLabels[mode.type]} — Key word transformations</title>
+    <title>{t('manual.title')} — {t(`exerciseType.${mode.type}`)} — Key word transformations</title>
 </svelte:head>
 
 <div class="page">
@@ -150,7 +144,7 @@
         <div>
             <h1>
                 {t('manual.title')}
-                <span class="type-label">{typeLabels[mode.type]}</span>
+                <span class="type-label">{t(`exerciseType.${mode.type}`)}</span>
             </h1>
             <p class="subtitle">{t('manual.subtitle')}</p>
         </div>

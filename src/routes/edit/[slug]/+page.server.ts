@@ -13,7 +13,6 @@
 import type {PageServerLoad} from './$types.js';
 import {db} from '$lib/server/db.js';
 import {error} from '@sveltejs/kit';
-// @ts-ignore
 import {env} from '$env/dynamic/private';
 import type {KWTQuestion} from '$lib/types.js';
 import type {ExerciseType} from '$lib/constants.js';

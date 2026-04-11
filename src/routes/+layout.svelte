@@ -14,8 +14,12 @@
      */
     const SCAN_ENABLED = false;
 
-    /** Hide mode tabs on test-taking and result pages — switching mode there is irrelevant. */
+    /**
+     * Hide mode tabs on the home page (all types are shown there already),
+     * and on test-taking / result pages where switching type is irrelevant.
+     */
     const showModeTabs = $derived(
+        $page.url.pathname !== '/' &&
         !$page.url.pathname.startsWith('/set/') &&
         !$page.url.pathname.startsWith('/result/'),
     );
@@ -35,12 +39,6 @@
     function setMode(type: ExerciseType) {
         mode.type = type;
     }
-
-    const typeLabels: Record<ExerciseType, string> = {
-        kwt: 'KWT',
-        grammar: 'Gramatykalizacja',
-        translation: 'Tłumaczenia',
-    };
 </script>
 
 <div class="shell">
@@ -48,7 +46,7 @@
         <a href="/" class="logo">angmatura</a>
 
         <nav class="nav">
-            <!-- Mode tabs — hidden on test-taking and result pages -->
+            <!-- Mode tabs — hidden on home, test-taking, and result pages -->
             {#if showModeTabs}
                 <div class="type-group" role="group" aria-label="Tryb ćwiczenia">
                     {#each EXERCISE_TYPES as type}
@@ -58,7 +56,7 @@
                                 aria-pressed={mode.type === type}
                                 onclick={() => setMode(type)}
                                 type="button"
-                        >{typeLabels[type]}</button>
+                        >{t(`exerciseType.${type}`)}</button>
                     {/each}
                 </div>
             {/if}
@@ -72,7 +70,7 @@
 
             <a href="/create/manual" class="nav-link nav-link--primary">
                 <PencilSimple size={16} weight="regular"/>
-                Utwórz zestaw
+                {t('nav.createSet')}
             </a>
 
             <button class="lang-btn" onclick={toggleLang} aria-label="Toggle language">
@@ -84,7 +82,7 @@
                 <form method="POST" action="/admin?/logout">
                     <button class="logout-btn" type="submit">
                         <SignOut size={14} weight="bold"/>
-                        Wyloguj
+                        {t('nav.logout')}
                     </button>
                 </form>
             {/if}

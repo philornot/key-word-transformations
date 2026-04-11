@@ -1,6 +1,7 @@
 import type { Actions, PageServerLoad } from './$types.js';
 import type { Cookies } from '@sveltejs/kit';
 import { error, fail, redirect } from '@sveltejs/kit';
+import { dev } from '$app/environment';
 import { db } from '$lib/server/db.js';
 import type { SetSummary } from '$lib/types.js';
 import type { ExerciseType } from '$lib/constants.js';
@@ -77,6 +78,8 @@ export const actions: Actions = {
             path: '/',
             httpOnly: true,
             sameSite: 'strict',
+            // Only mark Secure in production — dev runs over plain HTTP.
+            secure: !dev,
             maxAge: 60 * 60 * 8,
         });
 

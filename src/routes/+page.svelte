@@ -26,16 +26,6 @@
     }
 
     /**
-     * Returns the translated label for an exercise type.
-     *
-     * @param type - Exercise type key.
-     * @returns Translated display string.
-     */
-    function typeLabel(type: ExerciseType): string {
-        return t(`exerciseType.${type}`);
-    }
-
-    /**
      * Returns true when a given type has at least one public set.
      *
      * @param type - Exercise type key.
@@ -45,13 +35,6 @@
     }
 
     const anyPublicSets = $derived(EXERCISE_TYPES.some(hasAny));
-
-    /** Human-readable descriptions shown in the exercise type pills on the hero. */
-    const TYPE_DESCRIPTIONS: Record<ExerciseType, string> = {
-        kwt: 'Transformacje słów kluczowych',
-        grammar: 'Uzupełnianie zdań',
-        translation: 'Tłumaczenie fragmentów',
-    };
 </script>
 
 <svelte:head>
@@ -63,18 +46,15 @@
     <!-- ── Hero ────────────────────────────────────────────────────────── -->
     <section class="hero">
         <div class="hero-text">
-            <h1 class="hero-title">Maturalne zadania<br>z angielskiego</h1>
-            <p class="hero-sub">
-                Rozwiązuj zestawy z transformacji słów kluczowych, gramatykalizacji
-                i tłumaczeń — wszystkie typy zadań z angielskiego na poziomie rozszerzonym.
-            </p>
+            <h1 class="hero-title">{t('home.heroTitle')}</h1>
+            <p class="hero-sub">{t('home.heroSub')}</p>
         </div>
 
         <div class="type-pills">
             {#each EXERCISE_TYPES as type}
                 <div class="type-pill">
-                    <span class="pill-badge">{typeLabel(type)}</span>
-                    <span class="pill-desc">{TYPE_DESCRIPTIONS[type]}</span>
+                    <span class="pill-badge">{t(`exerciseType.${type}`)}</span>
+                    <span class="pill-desc">{t(`exerciseType.${type}Desc`)}</span>
                 </div>
             {/each}
         </div>
@@ -82,7 +62,7 @@
         <div class="hero-cta">
             <a href="/create/manual" class="btn-primary cta-btn">
                 <PencilSimpleIcon size={18} weight="regular"/>
-                Utwórz własny zestaw
+                {t('home.createOwnSet')}
             </a>
         </div>
     </section>
@@ -93,16 +73,16 @@
 
         {#if !anyPublicSets}
             <div class="no-sets card">
-                <p>Nie ma jeszcze żadnych zestawów do rozwiązania.</p>
-                <p class="no-sets-sub">Możesz stworzyć własny zestaw i podzielić się nim przez link.</p>
+                <p>{t('home.noSetsAlt')}</p>
+                <p class="no-sets-sub">{t('home.noSetsSubAlt')}</p>
             </div>
         {:else}
             {#each EXERCISE_TYPES as type}
                 {#if hasAny(type)}
                     <div class="type-section">
                         <h3 class="type-heading">
-                            <span class="type-badge">{typeLabel(type)}</span>
-                            <span class="type-desc">{TYPE_DESCRIPTIONS[type]}</span>
+                            <span class="type-badge">{t(`exerciseType.${type}`)}</span>
+                            <span class="type-desc">{t(`exerciseType.${type}Desc`)}</span>
                         </h3>
                         <div class="sets-grid">
                             {#each data.setsByType[type] as s (s.slug)}

@@ -25,7 +25,7 @@
     const setType = $derived(data.set.type as ExerciseType);
 
     let nextKey = 0;
-    let title = $state(data.set.title);     // Intentional: we want a local editable copy, not a live binding to server data.
+    let title = $state(data.set.title);     // Intentional: local editable copy, not a live binding to server data.
     let sourceLabel = $state(data.set.sourceLabel ?? '');
     let questions = $state<DraftQuestion[]>(
         (data.set.questions as KWTQuestion[]).map((q: KWTQuestion) => ({
@@ -149,7 +149,7 @@
 
 <svelte:head>
     <title>
-        {isAdmin ? 'Edytuj zestaw' : 'Edytuj kopię'} — {serverTitle}
+        {isAdmin ? t('edit.headAdmin') : t('edit.headUser')} — {serverTitle}
     </title>
 </svelte:head>
 
@@ -157,28 +157,23 @@
     <div class="top-bar">
         <div>
             <h1>
-                {isAdmin ? 'Edytuj zestaw' : 'Edytuj kopię zestawu'}
+                {isAdmin ? t('edit.titleAdmin') : t('edit.titleUser')}
                 <span class="type-label">{t(`exerciseType.${setType}`)}</span>
             </h1>
             <p class="subtitle">
-                {#if isAdmin}
-                    Zmiany nadpisują oryginalny zestaw. Link pozostaje ten sam.
-                {:else}
-                    Twoje zmiany zostaną zapisane jako nowy zestaw pod nowym linkiem.
-                    Jeśli nic nie zmienisz, zostaniesz przekierowany do oryginału.
-                {/if}
+                {isAdmin ? t('edit.subtitleAdmin') : t('edit.subtitleUser')}
             </p>
         </div>
         <button class="btn-primary save-btn" disabled={isSaving} onclick={save}>
             {#if isSaving}
                 <CircleNotchIcon size={18} weight="bold" class="spin"/>
-                Zapisywanie…
+                {t('edit.saving')}
             {:else if isAdmin}
                 <FloppyDiskIcon size={18} weight="regular"/>
-                Zapisz zestaw
+                {t('edit.saveAdmin')}
             {:else}
                 <RocketLaunchIcon size={18} weight="regular"/>
-                Zapisz kopię
+                {t('edit.saveUser')}
             {/if}
         </button>
     </div>
